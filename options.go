@@ -119,11 +119,11 @@ func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Se
 
 	defaultOptions := [...]func(*Server){
 		WithDisallowUnknownFields(true),
-		WithSerializer(Send),
-		WithErrorSerializer(SendError),
+		WithSerializer(SendJSON),
+		WithErrorSerializer(SendJSONError),
 		WithErrorHandler(ErrorHandler),
 		WithGlobalResponseTypes(http.StatusBadRequest, "Bad Request _(validation or deserialization error)_", HTTPError{}),
-		WithGlobalResponseTypes(http.StatusInternalServerError, "Internal Server Error _(panics)_", HTTPError{}),
+		WithGlobalResponseTypes(http.StatusInternalServerError, "Internal Server Error", HTTPError{}),
 	}
 
 	for _, option := range append(defaultOptions[:], options...) {
