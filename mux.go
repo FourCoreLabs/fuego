@@ -113,9 +113,9 @@ func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.H
 	allMiddlewares := append(group.middlewares, middlewares...)
 
 	if route.All || route.Method == "" {
-		group.rg.Any(route.Path, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
+		group.rg.Any(route.Path, setPattern, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
 	} else {
-		group.rg.Handle(route.Method, route.Path, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
+		group.rg.Handle(route.Method, route.Path, setPattern, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
 	}
 
 	if group.DisableOpenapi || route.Method == "" || route.All {

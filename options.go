@@ -92,26 +92,29 @@ type Server struct {
 // Option all begin with `With`.
 // Some default options are set in the function body.
 func NewServer(options ...func(*Server)) *Server {
-	return NewServerWithRouterGroup(nil)
+	s := NewServerWithRouterGroup(gin.RouterGroup{})
+	s.engine = gin.New()
+	s.rg = RouterGroup{
+		server: s,
+		rg:     &s.engine.RouterGroup,
+	}
+
+	return s
 }
 
-func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Server {
+func NewServerWithRouterGroup(rg gin.RouterGroup, options ...func(*Server)) *Server {
 	s := &Server{
 		OpenApiSpec: NewOpenApiSpec(),
 		Security:    NewSecurity(),
 	}
 
 	s.engine = &gin.Engine{
-		RouterGroup: *rg,
-	}
-
-	if rg == nil {
-		s.engine = gin.New()
+		RouterGroup: rg,
 	}
 
 	s.rg = RouterGroup{
 		server: s,
-		rg:     &s.engine.RouterGroup,
+		rg:     &rg,
 	}
 
 	defaultOptions := [...]func(*Server){

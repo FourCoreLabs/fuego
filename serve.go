@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"reflect"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Run starts the server.
@@ -39,6 +41,10 @@ func initContext[Contextable ctx[Body], Body any](baseContext ContextNoBody) Con
 	default:
 		panic("unknown type")
 	}
+}
+
+func setPattern(ctx *gin.Context) {
+	ctx.Request.Pattern = ctx.FullPath()
 }
 
 // HTTPHandler converts a Fuego controller into a http.HandlerFunc.
