@@ -138,7 +138,7 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 		bodyTag := schemaTagFromType(group.server, *new(B))
 
 		if bodyTag.name != "unknown-interface" {
-			requestBody := newRequestBody[B](bodyTag, []string{"application/json", "application/xml"})
+			requestBody := newRequestBody[B](bodyTag, []string{"application/json"})
 			group.server.OpenApiSpec.Components.RequestBodies[bodyTag.name] = &openapi3.RequestBodyRef{
 				Value: requestBody,
 			}
@@ -163,7 +163,12 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	route.Operation.AddResponse(200, response)
 
 	// Path parameters
-	for _, pathParam := range parsePathParams(route.Path) {
+	pathParamFn := parseGinPathParams
+	if route.isStd {
+		pathParamFn = parseStdPathParams
+	}
+
+	for _, pathParam := range pathParamFn(route.Path) {
 		parameter := openapi3.NewPathParameter(pathParam)
 		parameter.Schema = openapi3.NewStringSchema().NewRef()
 		if strings.HasSuffix(pathParam, "...") {

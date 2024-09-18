@@ -52,6 +52,7 @@ type Route[ResponseBody any, RequestBody any] struct {
 	Path      string              // URL path. Will be prefixed by the base path of the server and the group path if any
 	Handler   http.Handler        // handler executed for this route
 
+	isStd      bool
 	mainRouter *Server // ref to the main router, used to register the route in the OpenAPI spec
 }
 
@@ -146,8 +147,9 @@ func (group *RouterGroup) Use(middlewares ...func(http.Handler) http.Handler) {
 // Use this function if you want to use a standard HTTP handler instead of a Fuego controller.
 func Handle(s *RouterGroup, path string, controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		All:  true,
-		Path: path,
+		All:   true,
+		isStd: true,
+		Path:  path,
 	}, controller, middlewares...)
 }
 
@@ -161,6 +163,7 @@ func AllStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func GetStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodGet,
+		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -168,6 +171,7 @@ func GetStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func PostStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPost,
+		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -175,6 +179,7 @@ func PostStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *
 func DeleteStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodDelete,
+		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -182,6 +187,7 @@ func DeleteStd(s *RouterGroup, path string, controller func(http.ResponseWriter,
 func PutStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPut,
+		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -189,6 +195,7 @@ func PutStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func PatchStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPatch,
+		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
