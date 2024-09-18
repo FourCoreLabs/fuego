@@ -3,6 +3,7 @@ package fuego
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -52,50 +53,56 @@ type Route[ResponseBody any, RequestBody any] struct {
 	Path      string              // URL path. Will be prefixed by the base path of the server and the group path if any
 	Handler   http.Handler        // handler executed for this route
 
-	isStd      bool
+	isNonStd   bool
 	mainRouter *Server // ref to the main router, used to register the route in the OpenAPI spec
 }
 
 // Capture all methods (GET, POST, PUT, PATCH, DELETE) and register a controller.
 func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Path: path,
-		All:  true,
+		Path:     path,
+		All:      true,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method: http.MethodGet,
-		Path:   path,
+		Method:   http.MethodGet,
+		Path:     path,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method: http.MethodPost,
-		Path:   path,
+		Method:   http.MethodPost,
+		Path:     path,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method: http.MethodDelete,
-		Path:   path,
+		Method:   http.MethodDelete,
+		Path:     path,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method: http.MethodPut,
-		Path:   path,
+		Method:   http.MethodPut,
+		Path:     path,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method: http.MethodPatch,
-		Path:   path,
+		Method:   http.MethodPatch,
+		Path:     path,
+		isNonStd: true,
 	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
@@ -116,6 +123,9 @@ func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.H
 	}
 
 	route.Path = group.rg.BasePath() + route.Path
+	if route.isNonStd {
+		route.Path = ginToStdPath(route.Path)
+	}
 
 	var err error
 	route.Operation, err = RegisterOpenAPIOperation(group, route)
@@ -147,9 +157,8 @@ func (group *RouterGroup) Use(middlewares ...func(http.Handler) http.Handler) {
 // Use this function if you want to use a standard HTTP handler instead of a Fuego controller.
 func Handle(s *RouterGroup, path string, controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		All:   true,
-		isStd: true,
-		Path:  path,
+		All:  true,
+		Path: path,
 	}, controller, middlewares...)
 }
 
@@ -163,7 +172,6 @@ func AllStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func GetStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodGet,
-		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -171,7 +179,6 @@ func GetStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func PostStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPost,
-		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -179,7 +186,6 @@ func PostStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *
 func DeleteStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodDelete,
-		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -187,7 +193,6 @@ func DeleteStd(s *RouterGroup, path string, controller func(http.ResponseWriter,
 func PutStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPut,
-		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -195,7 +200,6 @@ func PutStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *h
 func PatchStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
 		Method: http.MethodPatch,
-		isStd:  true,
 		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
@@ -205,4 +209,32 @@ func withMiddlewares(controller http.Handler, middlewares ...func(http.Handler) 
 		controller = middlewares[i](controller)
 	}
 	return controller
+}
+
+func ginToStdPath(path string) string {
+	builder := strings.Builder{}
+	builder.Grow(len(path))
+
+	for len(path) > 0 {
+		colIdx := strings.IndexRune(path, ':')
+		if colIdx < 0 {
+			builder.WriteString(path)
+			break
+		}
+
+		builder.WriteString(path[:colIdx])
+		path = path[colIdx+1:]
+		end := strings.IndexRune(path, '/')
+		if end < 0 {
+			end = len(path)
+		}
+
+		builder.WriteRune('{')
+		builder.WriteString(path[:end])
+		builder.WriteRune('}')
+
+		path = path[end:]
+	}
+
+	return builder.String()
 }

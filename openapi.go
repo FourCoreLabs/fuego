@@ -162,13 +162,7 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	response := openapi3.NewResponse().WithDescription("OK").WithContent(content)
 	route.Operation.AddResponse(200, response)
 
-	// Path parameters
-	pathParamFn := parseGinPathParams
-	if route.isStd {
-		pathParamFn = parseStdPathParams
-	}
-
-	for _, pathParam := range pathParamFn(route.Path) {
+	for _, pathParam := range parseStdPathParams(route.Path) {
 		parameter := openapi3.NewPathParameter(pathParam)
 		parameter.Schema = openapi3.NewStringSchema().NewRef()
 		if strings.HasSuffix(pathParam, "...") {
