@@ -23,7 +23,7 @@ type NewControllerUpdate struct {
 }
 
 func (rs NewControllerResources) Routes(s *fuego.Server) {
-	newControllerGroup := fuego.Group(s, "/newController")
+	newControllerGroup := fuego.Group(&s.RouterGroup, "/newController")
 
 	fuego.Get(newControllerGroup, "/", rs.getAllNewController)
 	fuego.Post(newControllerGroup, "/", rs.postNewController)

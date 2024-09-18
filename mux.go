@@ -3,12 +3,15 @@ package fuego
 import (
 	"log/slog"
 	"net/http"
-	"reflect"
-	"runtime"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/gin-gonic/gin"
 )
+
+type GroupOption struct {
+	HideTag bool
+	Tag     openapi3.Tag
+}
 
 // Group allows grouping routes under a common path.
 // Middlewares are scoped to the group.
@@ -24,188 +27,169 @@ import (
 //		return ans{Ans: "users"}, nil
 //	})
 //	s.Run()
-func Group(s *Server, path string) *Server {
-	if path == "/" {
-		path = ""
-	} else if path != "" && path[len(path)-1] == '/' {
-		slog.Warn("Group path should not end with a slash.", "path", path+"/", "new", path)
+func (group *RouterGroup) Group(path string, groupOption ...GroupOption) *RouterGroup {
+	newGroup := group.newRouteGroup(path)
+
+	if newGroup.groupTag != "" && !group.server.disableAutoGroupTags {
+		groupOption = append(groupOption, GroupOption{Tag: openapi3.Tag{Name: newGroup.groupTag}})
+
+		if !groupOption[0].HideTag {
+			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &groupOption[0].Tag)
+		}
 	}
 
-	ss := *s
-	newServer := &ss
-	newServer.basePath += path
-	newServer.groupTag = strings.TrimLeft(path, "/")
-	if newServer.groupTag != "" {
-		s.OpenApiSpec.Tags = append(s.OpenApiSpec.Tags, &openapi3.Tag{Name: newServer.groupTag})
-	}
-	newServer.mainRouter = s
+	return newGroup
+}
 
-	return newServer
+func Group(group *RouterGroup, path string, groupOption ...GroupOption) *RouterGroup {
+	return group.Group(path, groupOption...)
 }
 
 type Route[ResponseBody any, RequestBody any] struct {
 	Operation *openapi3.Operation // GENERATED OpenAPI operation, do not set manually in Register function. You can change it after the route is registered.
+	All       bool                // define route to all HTTP methods. If true, ignore Method
 	Method    string              // HTTP method (GET, POST, PUT, PATCH, DELETE)
 	Path      string              // URL path. Will be prefixed by the base path of the server and the group path if any
 	Handler   http.Handler        // handler executed for this route
-	FullName  string              // namespace and name of the function to execute
 
 	mainRouter *Server // ref to the main router, used to register the route in the OpenAPI spec
 }
 
 // Capture all methods (GET, POST, PUT, PATCH, DELETE) and register a controller.
-func All[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Path:     path,
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+		Path: path,
+		All:  true,
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
-func Get[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method:   http.MethodGet,
-		Path:     path,
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+		Method: http.MethodGet,
+		Path:   path,
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
-func Post[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method:   http.MethodPost,
-		Path:     path,
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+		Method: http.MethodPost,
+		Path:   path,
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
-func Delete[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
 		Method: http.MethodDelete,
 		Path:   path,
-
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
-func Put[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method:   http.MethodPut,
-		Path:     path,
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+		Method: http.MethodPut,
+		Path:   path,
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
-func Patch[T, B any, Contexted ctx[B]](s *Server, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	return Register(s, Route[T, B]{
-		Method:   http.MethodPatch,
-		Path:     path,
-		FullName: FuncName(controller),
-	}, HTTPHandler(s, controller), middlewares...)
+		Method: http.MethodPatch,
+		Path:   path,
+	}, HTTPHandler(s.server, controller), middlewares...)
 }
 
 // Register registers a controller into the default mux and documents it in the OpenAPI spec.
-func Register[T, B any](s *Server, route Route[T, B], controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[T, B] {
+func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	route.Handler = controller
 
-	fullPath := s.basePath + route.Path
-	if route.Method != "" {
-		fullPath = route.Method + " " + fullPath
+	allMiddlewares := append(group.middlewares, middlewares...)
+
+	if route.All || route.Method == "" {
+		group.rg.Any(route.Path, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
+	} else {
+		group.rg.Handle(route.Method, route.Path, gin.WrapH(withMiddlewares(route.Handler, allMiddlewares...)))
 	}
-	slog.Debug("registering controller " + fullPath)
 
-	allMiddlewares := append(s.middlewares, middlewares...)
-	s.Mux.Handle(fullPath, withMiddlewares(route.Handler, allMiddlewares...))
-
-	if s.DisableOpenapi || route.Method == "" {
+	if group.DisableOpenapi || route.Method == "" || route.All {
 		return route
 	}
 
-	route.Path = s.basePath + route.Path
+	route.Path = group.rg.BasePath() + route.Path
 
 	var err error
-	route.Operation, err = RegisterOpenAPIOperation(s, route)
+	route.Operation, err = RegisterOpenAPIOperation(group, route)
 	if err != nil {
 		slog.Warn("error documenting openapi operation", "error", err)
 	}
 
-	if route.FullName == "" {
-		route.FullName = route.Path
-	}
-
-	if route.Operation.Summary == "" {
-		route.Operation.Summary = route.NameFromNamespace(camelToHuman)
-	}
-	if route.Operation.Description == "" {
-		route.Operation.Description = "controller: `" + route.FullName + "`\n\n---\n\n"
-	}
 	if route.Operation.OperationID == "" {
-		route.Operation.OperationID = route.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(route.Path, "{", ":"), "}", "")
+		route.Operation.OperationID = route.Method + "_" + route.Path
 	}
-	route.mainRouter = s
 
+	route.mainRouter = group.server
 	return route
 }
 
-func UseStd(s *Server, middlewares ...func(http.Handler) http.Handler) {
+func UseStd(s *RouterGroup, middlewares ...func(http.Handler) http.Handler) {
 	Use(s, middlewares...)
 }
 
-func Use(s *Server, middlewares ...func(http.Handler) http.Handler) {
+func Use(s *RouterGroup, middlewares ...func(http.Handler) http.Handler) {
 	s.middlewares = append(s.middlewares, middlewares...)
+}
+
+func (group *RouterGroup) Use(middlewares ...func(http.Handler) http.Handler) {
+	group.middlewares = append(group.middlewares, middlewares...)
 }
 
 // Handle registers a standard HTTP handler into the default mux.
 // Use this function if you want to use a standard HTTP handler instead of a Fuego controller.
-func Handle(s *Server, path string, controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func Handle(s *RouterGroup, path string, controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Path:     path,
-		FullName: FuncName(controller),
+		All:  true,
+		Path: path,
 	}, controller, middlewares...)
 }
 
-func AllStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func AllStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Path:     path,
-		FullName: FuncName(controller),
+		All:  true,
+		Path: path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
-func GetStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func GetStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Method:   http.MethodGet,
-		Path:     path,
-		FullName: FuncName(controller),
+		Method: http.MethodGet,
+		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
-func PostStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func PostStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Method:   http.MethodPost,
-		Path:     path,
-		FullName: FuncName(controller),
+		Method: http.MethodPost,
+		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
-func DeleteStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func DeleteStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Method:   http.MethodDelete,
-		Path:     path,
-		FullName: FuncName(controller),
+		Method: http.MethodDelete,
+		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
-func PutStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func PutStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Method:   http.MethodPut,
-		Path:     path,
-		FullName: FuncName(controller),
+		Method: http.MethodPut,
+		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
-func PatchStd(s *Server, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
+func PatchStd(s *RouterGroup, path string, controller func(http.ResponseWriter, *http.Request), middlewares ...func(http.Handler) http.Handler) Route[any, any] {
 	return Register(s, Route[any, any]{
-		Method:   http.MethodPatch,
-		Path:     path,
-		FullName: FuncName(controller),
+		Method: http.MethodPatch,
+		Path:   path,
 	}, http.HandlerFunc(controller), middlewares...)
 }
 
@@ -214,40 +198,4 @@ func withMiddlewares(controller http.Handler, middlewares ...func(http.Handler) 
 		controller = middlewares[i](controller)
 	}
 	return controller
-}
-
-// FuncName returns the name of a function and the name with package path
-func FuncName(f interface{}) string {
-	return strings.TrimSuffix(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), "-fm")
-}
-
-// NameFromNamespace returns the Route's FullName final string
-// delimited by `.`. Essentially getting the name of the function
-// and leaving the package path
-//
-// The output can be further modified with a list of optional
-// string manipulation funcs (i.e func(string) string)
-func (r Route[T, B]) NameFromNamespace(opts ...func(string) string) string {
-	ss := strings.Split(r.FullName, ".")
-	name := ss[len(ss)-1]
-	for _, o := range opts {
-		name = o(name)
-	}
-	return name
-}
-
-// transform camelCase to human-readable string
-func camelToHuman(s string) string {
-	result := strings.Builder{}
-	for i, r := range s {
-		if 'A' <= r && r <= 'Z' {
-			if i > 0 {
-				result.WriteRune(' ')
-			}
-			result.WriteRune(r + 'a' - 'A') // 'A' -> 'a
-		} else {
-			result.WriteRune(r)
-		}
-	}
-	return result.String()
 }

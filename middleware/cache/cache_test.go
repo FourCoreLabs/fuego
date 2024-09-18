@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-fuego/fuego"
+	"github.com/FourCoreLabs/fuego"
 )
 
 type testStruct struct {
@@ -28,7 +28,7 @@ func TestCache(t *testing.T) {
 		s := fuego.NewServer()
 
 		require.Panics(t, func() {
-			fuego.Use(s, New(Config{}, Config{}))
+			fuego.Use(s.RouterGroup(), New(Config{}, Config{}))
 		})
 	})
 
@@ -37,18 +37,18 @@ func TestCache(t *testing.T) {
 		fuego.Use(s, New(Config{
 			Key: func(r *http.Request) string { return "custom_key" },
 		}))
-		fuego.Get(s, "/with-cache", baseController)
+		fuego.Get(s.RouterGroup(), "/with-cache", baseController)
 	})
 
 	t.Run("cache with base config", func(t *testing.T) {
 		s := fuego.NewServer()
 
-		fuego.Get(s, "/without-cache", baseController)
+		fuego.Get(s.RouterGroup(), "/without-cache", baseController)
 
-		fuego.Use(s, New(Config{}))
+		fuego.Use(s.RouterGroup(), New(Config{}))
 
-		fuego.Get(s, "/with-cache", baseController)
-		fuego.Post(s, "/cant-be-cached-because-not-get", baseController)
+		fuego.Get(s.RouterGroup(), "/with-cache", baseController)
+		fuego.Post(s.RouterGroup(), "/cant-be-cached-because-not-get", baseController)
 
 		t.Run("Answer once", func(t *testing.T) {
 			r := httptest.NewRequest("GET", "/without-cache", nil)

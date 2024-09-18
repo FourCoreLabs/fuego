@@ -1,8 +1,0 @@
-full-app-gourmet
-docs
-.vscode
-tmp
-*.db
-node_modules
-tmp/*
-*_templ.go

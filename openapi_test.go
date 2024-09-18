@@ -204,16 +204,16 @@ func Test_tagFromType(t *testing.T) {
 
 func TestServer_generateOpenAPI(t *testing.T) {
 	s := NewServer()
-	Get(s, "/", func(*ContextNoBody) (MyStruct, error) {
+	Get(s.RouterGroup(), "/", func(*ContextNoBody) (MyStruct, error) {
 		return MyStruct{}, nil
 	})
-	Post(s, "/post", func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
+	Post(s.RouterGroup(), "/post", func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
 		return nil, nil
 	})
-	Get(s, "/post/{id}", func(*ContextNoBody) (MyOutputStruct, error) {
+	Get(s.RouterGroup(), "/post/{id}", func(*ContextNoBody) (MyOutputStruct, error) {
 		return MyOutputStruct{}, nil
 	})
-	Post(s, "/multidimensional/post", func(*ContextWithBody[MyStruct]) ([][]MyStruct, error) {
+	Post(s.RouterGroup(), "/multidimensional/post", func(*ContextWithBody[MyStruct]) ([][]MyStruct, error) {
 		return nil, nil
 	})
 	document := s.OutputOpenAPISpec()
@@ -234,98 +234,9 @@ func TestServer_generateOpenAPI(t *testing.T) {
 	t.Run("openapi doc is available through a route", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/swagger/openapi.json", nil)
-		s.Mux.ServeHTTP(w, r)
+		s.ServeHTTP(w, r)
 
 		require.Equal(t, 200, w.Code)
-	})
-}
-
-func TestServer_OutputOpenApiSpec(t *testing.T) {
-	docPath := "doc/openapi.json"
-	t.Run("base", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(
-				OpenAPIConfig{
-					JsonFilePath: docPath,
-				},
-			),
-		)
-		Get(s, "/", func(*ContextNoBody) (MyStruct, error) {
-			return MyStruct{}, nil
-		})
-
-		document := s.OutputOpenAPISpec()
-		require.NotNil(t, document)
-
-		file, err := os.Open(docPath)
-		require.NoError(t, err)
-		require.NotNil(t, file)
-		defer os.Remove(file.Name())
-		require.Equal(t, 1, lineCounter(t, file))
-	})
-	t.Run("do not print file", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(
-				OpenAPIConfig{
-					JsonFilePath:     docPath,
-					DisableLocalSave: true,
-				},
-			),
-		)
-		Get(s, "/", func(*ContextNoBody) (MyStruct, error) {
-			return MyStruct{}, nil
-		})
-
-		document := s.OutputOpenAPISpec()
-		require.NotNil(t, document)
-
-		file, err := os.Open(docPath)
-		require.Error(t, err)
-		require.Nil(t, file)
-	})
-	t.Run("swagger disabled", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(
-				OpenAPIConfig{
-					JsonFilePath:     docPath,
-					DisableLocalSave: true,
-					DisableSwagger:   true,
-				},
-			),
-		)
-		Get(s, "/", func(*ContextNoBody) (MyStruct, error) {
-			return MyStruct{}, nil
-		})
-
-		document := s.OutputOpenAPISpec()
-		require.Len(t, document.Paths.Map(), 1)
-		require.NotNil(t, document)
-
-		file, err := os.Open(docPath)
-		require.Error(t, err)
-		require.Nil(t, file)
-	})
-	t.Run("pretty format json file", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(
-				OpenAPIConfig{
-					JsonFilePath:     docPath,
-					PrettyFormatJson: true,
-				},
-			),
-		)
-		Get(s, "/", func(*ContextNoBody) (MyStruct, error) {
-			return MyStruct{}, nil
-		})
-
-		document := s.OutputOpenAPISpec()
-		require.NotNil(t, document)
-
-		file, err := os.Open(docPath)
-		require.NoError(t, err)
-		require.NotNil(t, file)
-		defer os.Remove(file.Name())
-		require.Greater(t, lineCounter(t, file), 1)
 	})
 }
 
@@ -345,16 +256,16 @@ func BenchmarkRoutesRegistration(b *testing.B) {
 		s := NewServer(
 			WithoutLogger(),
 		)
-		Get(s, "/", func(ContextNoBody) (MyStruct, error) {
+		Get(s.RouterGroup(), "/", func(ContextNoBody) (MyStruct, error) {
 			return MyStruct{}, nil
 		})
 		for j := 0; j < 100; j++ {
-			Post(s, fmt.Sprintf("/post/%d", j), func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
+			Post(s.RouterGroup(), fmt.Sprintf("/post/%d", j), func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
 				return nil, nil
 			})
 		}
 		for j := 0; j < 100; j++ {
-			Get(s, fmt.Sprintf("/post/{id}/%d", j), func(ContextNoBody) (MyStruct, error) {
+			Get(s.RouterGroup(), fmt.Sprintf("/post/{id}/%d", j), func(ContextNoBody) (MyStruct, error) {
 				return MyStruct{}, nil
 			})
 		}
@@ -366,16 +277,16 @@ func BenchmarkServer_generateOpenAPI(b *testing.B) {
 		s := NewServer(
 			WithoutLogger(),
 		)
-		Get(s, "/", func(ContextNoBody) (MyStruct, error) {
+		Get(s.RouterGroup(), "/", func(ContextNoBody) (MyStruct, error) {
 			return MyStruct{}, nil
 		})
 		for j := 0; j < 100; j++ {
-			Post(s, fmt.Sprintf("/post/%d", j), func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
+			Post(s.RouterGroup(), fmt.Sprintf("/post/%d", j), func(*ContextWithBody[MyStruct]) ([]MyStruct, error) {
 				return nil, nil
 			})
 		}
 		for j := 0; j < 100; j++ {
-			Get(s, fmt.Sprintf("/post/{id}/%d", j), func(ContextNoBody) (MyStruct, error) {
+			Get(s.RouterGroup(), fmt.Sprintf("/post/{id}/%d", j), func(ContextNoBody) (MyStruct, error) {
 				return MyStruct{}, nil
 			})
 		}
@@ -423,17 +334,12 @@ func TestLocalSave(t *testing.T) {
 }
 
 func TestAutoGroupTags(t *testing.T) {
-	s := NewServer(
-		WithOpenAPIConfig(OpenAPIConfig{
-			DisableLocalSave: true,
-			DisableSwagger:   true,
-		}),
-	)
-	Get(s, "/a", func(*ContextNoBody) (MyStruct, error) {
+	s := NewServer()
+	Get(s.RouterGroup(), "/a", func(*ContextNoBody) (MyStruct, error) {
 		return MyStruct{}, nil
 	})
 
-	group := Group(s, "/group")
+	group := Group(s.RouterGroup(), "/group")
 	Get(group, "/b", func(*ContextNoBody) (MyStruct, error) {
 		return MyStruct{}, nil
 	})
@@ -443,7 +349,7 @@ func TestAutoGroupTags(t *testing.T) {
 		return MyStruct{}, nil
 	})
 
-	otherGroup := Group(s, "/other")
+	otherGroup := Group(s.RouterGroup(), "/other")
 	Get(otherGroup, "/d", func(*ContextNoBody) (MyStruct, error) {
 		return MyStruct{}, nil
 	})
@@ -463,7 +369,7 @@ func TestValidationTags(t *testing.T) {
 	}
 
 	s := NewServer()
-	Get(s, "/data", func(ContextNoBody) (MyType, error) {
+	Get(s.RouterGroup(), "/data", func(ContextNoBody) (MyType, error) {
 		return MyType{}, nil
 	})
 

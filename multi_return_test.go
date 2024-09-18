@@ -39,7 +39,7 @@ type MyType struct {
 func TestMultiReturn(t *testing.T) {
 	s := NewServer()
 
-	Get(s, "/data", func(c ContextNoBody) (DataOrTemplate[MyType], error) {
+	Get(s.RouterGroup(), "/data", func(c ContextNoBody) (DataOrTemplate[MyType], error) {
 		entity := MyType{Name: "Ewen"}
 
 		return DataOrTemplate[MyType]{
@@ -48,7 +48,7 @@ func TestMultiReturn(t *testing.T) {
 		}, nil
 	})
 
-	Get(s, "/other", func(c ContextNoBody) (*DataOrTemplate[MyType], error) {
+	Get(s.RouterGroup(), "/other", func(c ContextNoBody) (*DataOrTemplate[MyType], error) {
 		entity := MyType{Name: "Ewen"}
 
 		return DataOrHTML(
@@ -61,7 +61,7 @@ func TestMultiReturn(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/data", nil)
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Equal(t, "text/html; charset=utf-8", recorder.Header().Get("Content-Type"))
@@ -73,7 +73,7 @@ func TestMultiReturn(t *testing.T) {
 		req := httptest.NewRequest("GET", "/data", nil)
 		req.Header.Set("Accept", "application/json")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
@@ -85,7 +85,7 @@ func TestMultiReturn(t *testing.T) {
 		req := httptest.NewRequest("GET", "/other", nil)
 		req.Header.Set("Accept", "application/json")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
@@ -97,7 +97,7 @@ func TestMultiReturn(t *testing.T) {
 		req := httptest.NewRequest("GET", "/data", nil)
 		req.Header.Set("Accept", "application/xml")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Equal(t, "application/xml", recorder.Header().Get("Content-Type"))
@@ -109,7 +109,7 @@ func TestMultiReturn(t *testing.T) {
 		req := httptest.NewRequest("GET", "/data", nil)
 		req.Header.Set("Accept", "text/html")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")

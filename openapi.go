@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -41,14 +39,14 @@ func NewOpenApiSpec() openapi3.T {
 }
 
 // Hide prevents the routes in this server or group from being included in the OpenAPI spec.
-func (s *Server) Hide() *Server {
+func (s *RouterGroup) Hide() *RouterGroup {
 	s.DisableOpenapi = true
 	return s
 }
 
 // Show allows displaying the routes. Activated by default so useless in most cases,
 // but this can be useful if you deactivated the parent group.
-func (s *Server) Show() *Server {
+func (s *RouterGroup) Show() *RouterGroup {
 	s.DisableOpenapi = false
 	return s
 }
@@ -63,28 +61,11 @@ func (s *Server) OutputOpenAPISpec() openapi3.T {
 		slog.Error("Error validating spec", "error", err)
 	}
 
-	// Marshal spec to JSON
-	jsonSpec, err := s.marshalSpec()
-	if err != nil {
-		slog.Error("Error marshaling spec to JSON", "error", err)
-	}
-
-	if !s.OpenAPIConfig.DisableSwagger {
-		s.registerOpenAPIRoutes(jsonSpec)
-	}
-
-	if !s.OpenAPIConfig.DisableLocalSave {
-		err := s.saveOpenAPIToFile(s.OpenAPIConfig.JsonFilePath, jsonSpec)
-		if err != nil {
-			slog.Error("Error saving spec to local path", "error", err, "path", s.OpenAPIConfig.JsonFilePath)
-		}
-	}
-
 	return s.OpenApiSpec
 }
 
-func (s *Server) marshalSpec() ([]byte, error) {
-	if s.OpenAPIConfig.PrettyFormatJson {
+func (s *Server) MarshalSpec(prettyFormatJSON bool) ([]byte, error) {
+	if prettyFormatJSON {
 		return json.MarshalIndent(s.OpenApiSpec, "", "	")
 	}
 	return json.Marshal(s.OpenApiSpec)
@@ -113,23 +94,6 @@ func (s *Server) saveOpenAPIToFile(jsonSpecLocalPath string, jsonSpec []byte) er
 	return nil
 }
 
-// Registers the routes to serve the OpenAPI spec and Swagger UI.
-func (s *Server) registerOpenAPIRoutes(jsonSpec []byte) {
-	GetStd(s, s.OpenAPIConfig.JsonUrl, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(jsonSpec)
-	})
-	s.printOpenAPIMessage(fmt.Sprintf("JSON spec: %s://%s%s", s.proto(), s.Server.Addr, s.OpenAPIConfig.JsonUrl))
-
-	if !s.OpenAPIConfig.DisableSwaggerUI {
-		Register(s, Route[any, any]{
-			Method: http.MethodGet,
-			Path:   s.OpenAPIConfig.SwaggerUrl + "/",
-		}, s.OpenAPIConfig.UIHandler(s.OpenAPIConfig.JsonUrl))
-		s.printOpenAPIMessage(fmt.Sprintf("OpenAPI UI: %s://%s%s/index.html", s.proto(), s.Server.Addr, s.OpenAPIConfig.SwaggerUrl))
-	}
-}
-
 func (s *Server) printOpenAPIMessage(msg string) {
 	if !s.disableStartupMessages {
 		slog.Info(msg)
@@ -151,31 +115,31 @@ var generator = openapi3gen.NewGenerator(
 )
 
 // RegisterOpenAPIOperation registers an OpenAPI operation.
-func RegisterOpenAPIOperation[T, B any](s *Server, route Route[T, B]) (*openapi3.Operation, error) {
+func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (*openapi3.Operation, error) {
 	if route.Operation == nil {
 		route.Operation = openapi3.NewOperation()
 	}
 
-	if s.tags != nil {
-		route.Operation.Tags = append(route.Operation.Tags, s.tags...)
+	if group.tags != nil {
+		route.Operation.Tags = append(route.Operation.Tags, group.tags...)
 	}
 
 	// Tags
-	if !s.disableAutoGroupTags && s.groupTag != "" {
-		route.Operation.Tags = append(route.Operation.Tags, s.groupTag)
+	if !group.server.disableAutoGroupTags && group.groupTag != "" {
+		route.Operation.Tags = append(route.Operation.Tags, group.groupTag)
 	}
 
-	for _, param := range s.params {
+	for _, param := range group.params {
 		route.Param(param.Type, param.Name, param.Description, param.OpenAPIParamOption)
 	}
 
 	// Request Body
 	if route.Operation.RequestBody == nil {
-		bodyTag := schemaTagFromType(s, *new(B))
+		bodyTag := schemaTagFromType(group.server, *new(B))
 
 		if bodyTag.name != "unknown-interface" {
 			requestBody := newRequestBody[B](bodyTag, []string{"application/json", "application/xml"})
-			s.OpenApiSpec.Components.RequestBodies[bodyTag.name] = &openapi3.RequestBodyRef{
+			group.server.OpenApiSpec.Components.RequestBodies[bodyTag.name] = &openapi3.RequestBodyRef{
 				Value: requestBody,
 			}
 
@@ -188,13 +152,13 @@ func RegisterOpenAPIOperation[T, B any](s *Server, route Route[T, B]) (*openapi3
 	}
 
 	// Response - globals
-	for _, openAPIGlobalResponse := range s.globalOpenAPIResponses {
-		addResponse(s, route.Operation, openAPIGlobalResponse.Code, openAPIGlobalResponse.Description, openAPIGlobalResponse.ErrorType)
+	for _, openAPIGlobalResponse := range group.server.globalOpenAPIResponses {
+		addResponse(group.server, route.Operation, openAPIGlobalResponse.Code, openAPIGlobalResponse.Description, openAPIGlobalResponse.ErrorType)
 	}
 
 	// Response - 200
-	responseSchema := schemaTagFromType(s, *new(T))
-	content := openapi3.NewContentWithSchemaRef(&responseSchema.SchemaRef, []string{"application/json", "application/xml"})
+	responseSchema := schemaTagFromType(group.server, *new(T))
+	content := openapi3.NewContentWithSchemaRef(&responseSchema.SchemaRef, []string{"application/json"})
 	response := openapi3.NewResponse().WithDescription("OK").WithContent(content)
 	route.Operation.AddResponse(200, response)
 
@@ -209,7 +173,7 @@ func RegisterOpenAPIOperation[T, B any](s *Server, route Route[T, B]) (*openapi3
 		route.Operation.AddParameter(parameter)
 	}
 
-	s.OpenApiSpec.AddOperation(route.Path, route.Method, route.Operation)
+	group.server.OpenApiSpec.AddOperation(route.Path, route.Method, route.Operation)
 
 	return route.Operation, nil
 }

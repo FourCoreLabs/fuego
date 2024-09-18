@@ -3,7 +3,7 @@ package basicauth
 import (
 	"net/http"
 
-	"github.com/go-fuego/fuego"
+	"github.com/FourCoreLabs/fuego"
 )
 
 type Config struct {

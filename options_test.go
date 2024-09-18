@@ -26,12 +26,12 @@ func TestNewServer(t *testing.T) {
 	s := NewServer()
 
 	t.Run("can register controller", func(t *testing.T) {
-		Get(s, "/", controller)
+		Get(s.RouterGroup(), "/", controller)
 
 		recorder := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/", nil)
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 	})
@@ -39,15 +39,15 @@ func TestNewServer(t *testing.T) {
 
 func TestWithXML(t *testing.T) {
 	s := NewServer()
-	Get(s, "/", controller)
-	Get(s, "/error", controllerWithError)
+	Get(s.RouterGroup(), "/", controller)
+	Get(s.RouterGroup(), "/error", controllerWithError)
 
 	t.Run("response is XML", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept", "application/xml")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 200, recorder.Code)
 		require.Equal(t, "application/xml", recorder.Header().Get("Content-Type"))
@@ -59,84 +59,12 @@ func TestWithXML(t *testing.T) {
 		req := httptest.NewRequest("GET", "/error", nil)
 		req.Header.Set("Accept", "application/xml")
 
-		s.Mux.ServeHTTP(recorder, req)
+		s.ServeHTTP(recorder, req)
 
 		require.Equal(t, 500, recorder.Code)
 		require.Equal(t, "<HTTPError><title>Internal Server Error</title><status>500</status></HTTPError>", recorder.Body.String())
 		require.Equal(t, "application/xml", recorder.Header().Get("Content-Type"))
 	})
-}
-
-func TestWithOpenAPIConfig(t *testing.T) {
-	t.Run("with default values", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(OpenAPIConfig{}),
-		)
-
-		require.Equal(t, "/swagger", s.OpenAPIConfig.SwaggerUrl)
-		require.Equal(t, "/swagger/openapi.json", s.OpenAPIConfig.JsonUrl)
-		require.Equal(t, "doc/openapi.json", s.OpenAPIConfig.JsonFilePath)
-		require.False(t, s.OpenAPIConfig.PrettyFormatJson)
-	})
-
-	t.Run("with custom values", func(t *testing.T) {
-		s := NewServer(
-			WithOpenAPIConfig(OpenAPIConfig{
-				SwaggerUrl:       "/api",
-				JsonUrl:          "/api/openapi.json",
-				JsonFilePath:     "openapi.json",
-				DisableSwagger:   true,
-				DisableLocalSave: true,
-				PrettyFormatJson: true,
-			}),
-		)
-
-		require.Equal(t, "/api", s.OpenAPIConfig.SwaggerUrl)
-		require.Equal(t, "/api/openapi.json", s.OpenAPIConfig.JsonUrl)
-		require.Equal(t, "openapi.json", s.OpenAPIConfig.JsonFilePath)
-		require.True(t, s.OpenAPIConfig.DisableSwagger)
-		require.True(t, s.OpenAPIConfig.DisableLocalSave)
-		require.True(t, s.OpenAPIConfig.PrettyFormatJson)
-	})
-
-	t.Run("with invalid local path values", func(t *testing.T) {
-		t.Run("with invalid path", func(t *testing.T) {
-			NewServer(
-				WithOpenAPIConfig(OpenAPIConfig{
-					JsonFilePath: "path/to/jsonSpec",
-					SwaggerUrl:   "p   i",
-					JsonUrl:      "pi/op  enapi.json",
-				}),
-			)
-		})
-		t.Run("with invalid url", func(t *testing.T) {
-			NewServer(
-				WithOpenAPIConfig(OpenAPIConfig{
-					JsonFilePath: "path/to/jsonSpec.json",
-					JsonUrl:      "pi/op  enapi.json",
-					SwaggerUrl:   "p   i",
-				}),
-			)
-		})
-
-		t.Run("with invalid url", func(t *testing.T) {
-			NewServer(
-				WithOpenAPIConfig(OpenAPIConfig{
-					JsonFilePath: "path/to/jsonSpec.json",
-					JsonUrl:      "/api/openapi.json",
-					SwaggerUrl:   "invalid path",
-				}),
-			)
-		})
-	})
-}
-
-func TestWithBasePath(t *testing.T) {
-	s := NewServer(
-		WithBasePath("/api"),
-	)
-
-	require.Equal(t, "/api", s.basePath)
 }
 
 func TestWithMaxBodySize(t *testing.T) {
@@ -227,55 +155,6 @@ func TestWithValidator(t *testing.T) {
 	}
 }
 
-func TestWithAddr(t *testing.T) {
-	tests := []struct {
-		name         string
-		addr         string
-		expectedAddr string
-	}{
-		{
-			name:         "with custom addr, that addr is used",
-			addr:         "localhost:8888",
-			expectedAddr: "localhost:8888",
-		},
-		{
-			name:         "no addr provided, default is used (9999)",
-			addr:         "",
-			expectedAddr: "localhost:9999",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				var opts []func(*Server)
-
-				if tt.addr != "" {
-					opts = append(opts, WithAddr(tt.addr))
-				}
-
-				s := NewServer(
-					opts...,
-				)
-				require.Equal(t, tt.expectedAddr, s.Server.Addr)
-			},
-		)
-	}
-}
-
-func TestWithPort(t *testing.T) {
-	t.Run("with custom port, that port is used", func(t *testing.T) {
-		s := NewServer(
-			WithPort(8488),
-		)
-		require.Equal(t, "localhost:8488", s.Server.Addr)
-	})
-
-	t.Run("no port provided, default is used (9999)", func(t *testing.T) {
-		s := NewServer()
-		require.Equal(t, "localhost:9999", s.Server.Addr)
-	})
-}
-
 func TestWithoutStartupMessages(t *testing.T) {
 	s := NewServer(
 		WithoutStartupMessages(),
@@ -291,7 +170,7 @@ func TestWithoutAutoGroupTags(t *testing.T) {
 
 	require.True(t, s.disableAutoGroupTags)
 
-	group := Group(s, "/api")
+	group := Group(s.RouterGroup(), "/api")
 	Get(group, "/test", controller)
 
 	document := s.OutputOpenAPISpec()
@@ -301,14 +180,14 @@ func TestWithoutAutoGroupTags(t *testing.T) {
 
 func TestServerTags(t *testing.T) {
 	t.Run("set tags", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			Tags("my-server-tag")
 
 		require.Equal(t, s.tags, []string{"my-server-tag"})
 	})
 
 	t.Run("add tags", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			AddTags("my-server-tag").
 			AddTags("my-other-server-tag")
 
@@ -316,7 +195,7 @@ func TestServerTags(t *testing.T) {
 	})
 
 	t.Run("remove tags", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			Tags("my-server-tag").
 			AddTags("my-other-server-tag").
 			RemoveTags("my-other-server-tag")
@@ -325,7 +204,7 @@ func TestServerTags(t *testing.T) {
 	})
 
 	t.Run("inherit tags from group, replace", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			Tags("my-server-tag")
 
 		group := Group(s, "/api").
@@ -340,7 +219,7 @@ func TestServerTags(t *testing.T) {
 	})
 
 	t.Run("inherit tags from group, add", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			Tags("my-server-tag")
 
 		group := Group(s, "/api").
@@ -355,7 +234,7 @@ func TestServerTags(t *testing.T) {
 	})
 
 	t.Run("inherit tags from group, remove", func(t *testing.T) {
-		s := NewServer().
+		s := NewServer().RouterGroup().
 			Tags("my-server-tag")
 
 		group := Group(s, "/api").
@@ -384,13 +263,13 @@ func TestCustomSerialization(t *testing.T) {
 		}),
 	)
 
-	Get(s, "/", func(c *ContextNoBody) (ans, error) {
+	Get(s.RouterGroup(), "/", func(c *ContextNoBody) (ans, error) {
 		return ans{Ans: "Hello World"}, nil
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	s.Mux.ServeHTTP(w, req)
+	s.ServeHTTP(w, req)
 
 	require.Equal(t, 202, w.Code)
 	require.Equal(t, "custom serialization", w.Body.String())
@@ -398,9 +277,9 @@ func TestCustomSerialization(t *testing.T) {
 
 func TestGroupParams(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Param("X-Test-Header", "test-value", OpenAPIParamOption{Example: "example", Required: true})
+	group := Group(s.RouterGroup(), "/api").Param("X-Test-Header", "test-value", OpenAPIParamOption{Example: "example", Required: true})
 
-	Get(s, "/", controller)
+	Get(s.RouterGroup(), "/", controller)
 	Get(group, "/test", controller)
 	Get(group, "/test2", controller)
 
@@ -414,7 +293,7 @@ func TestGroupParams(t *testing.T) {
 
 func TestGroupHeaderParams(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Header("X-Test-Header", "test-value")
+	group := Group(s.RouterGroup(), "/api").Header("X-Test-Header", "test-value")
 
 	Get(group, "/test", controller)
 
@@ -426,7 +305,7 @@ func TestGroupHeaderParams(t *testing.T) {
 
 func TestGroupCookieParams(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Cookie("X-Test-Cookie", "test-value")
+	group := Group(s.RouterGroup(), "/api").Cookie("X-Test-Cookie", "test-value")
 
 	Get(group, "/test", controller)
 
@@ -438,7 +317,7 @@ func TestGroupCookieParams(t *testing.T) {
 
 func TestGroupQueryParam(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Query("X-Test-Query", "test-value")
+	group := Group(s.RouterGroup(), "/api").Query("X-Test-Query", "test-value")
 
 	Get(group, "/test", controller)
 
@@ -450,7 +329,7 @@ func TestGroupQueryParam(t *testing.T) {
 
 func TestGroupParamsInChildGroup(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Param("X-Test-Header", "test-value")
+	group := Group(s.RouterGroup(), "/api").Param("X-Test-Header", "test-value")
 
 	subGroup := Group(group, "/users")
 
@@ -461,7 +340,7 @@ func TestGroupParamsInChildGroup(t *testing.T) {
 
 func TestGroupParamsNotInParentGroup(t *testing.T) {
 	s := NewServer()
-	parentGroup := Group(s, "/api")
+	parentGroup := Group(s.RouterGroup(), "/api")
 	group := Group(parentGroup, "/users").Param("X-Test-Header", "test-value")
 
 	expectedParams := []OpenAPIParam{{Name: "X-Test-Header", Description: "test-value", OpenAPIParamOption: OpenAPIParamOption{Required: false, Example: "", Type: ""}}}
@@ -471,8 +350,8 @@ func TestGroupParamsNotInParentGroup(t *testing.T) {
 
 func TestGroupParamsNotInSiblingGroup(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Param("X-Test-Header", "test-value")
-	siblingGroup := Group(s, "/api2")
+	group := Group(s.RouterGroup(), "/api").Param("X-Test-Header", "test-value")
+	siblingGroup := Group(s.RouterGroup(), "/api2")
 
 	expectedParams := []OpenAPIParam{{Name: "X-Test-Header", Description: "test-value", OpenAPIParamOption: OpenAPIParamOption{Required: false, Example: "", Type: ""}}}
 	require.Equal(t, expectedParams, group.params)
@@ -480,7 +359,7 @@ func TestGroupParamsNotInSiblingGroup(t *testing.T) {
 }
 
 func TestGroupParamsInMainServerInstance(t *testing.T) {
-	s := NewServer().Param("X-Test-Header", "test-value")
+	s := NewServer().RouterGroup().Param("X-Test-Header", "test-value")
 
 	expectedParams := []OpenAPIParam{{Name: "X-Test-Header", Description: "test-value", OpenAPIParamOption: OpenAPIParamOption{Required: false, Example: "", Type: ""}}}
 	require.Equal(t, expectedParams, s.params)
@@ -488,7 +367,7 @@ func TestGroupParamsInMainServerInstance(t *testing.T) {
 
 func TestHideGroupAfterGroupParam(t *testing.T) {
 	s := NewServer()
-	group := Group(s, "/api").Param("X-Test-Header", "test-value").Hide()
+	group := Group(s.RouterGroup(), "/api").Param("X-Test-Header", "test-value").Hide()
 
 	Get(group, "/test", controller)
 

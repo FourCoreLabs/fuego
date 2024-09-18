@@ -7,7 +7,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-fuego/fuego"
+	"github.com/FourCoreLabs/fuego"
 )
 
 func TestCors(t *testing.T) {

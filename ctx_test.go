@@ -15,28 +15,28 @@ import (
 func TestContext_PathParam(t *testing.T) {
 	t.Run("can read one path param", func(t *testing.T) {
 		s := NewServer()
-		Get(s, "/foo/{id}", func(c ContextNoBody) (ans, error) {
+		Get(s.RouterGroup(), "/foo/{id}", func(c ContextNoBody) (ans, error) {
 			return ans{Ans: c.PathParam("id")}, nil
 		})
 
 		r := httptest.NewRequest("GET", "/foo/123", nil)
 		w := httptest.NewRecorder()
 
-		s.Mux.ServeHTTP(w, r)
+		s.ServeHTTP(w, r)
 
 		require.Equal(t, crlf(`{"ans":"123"}`), w.Body.String())
 	})
 
 	t.Run("path param invalid", func(t *testing.T) {
 		s := NewServer()
-		Get(s, "/foo/", func(c ContextNoBody) (ans, error) {
+		Get(s.RouterGroup(), "/foo/", func(c ContextNoBody) (ans, error) {
 			return ans{Ans: c.PathParam("id")}, nil
 		})
 
 		r := httptest.NewRequest("GET", "/foo/", nil)
 		w := httptest.NewRecorder()
 
-		s.Mux.ServeHTTP(w, r)
+		s.ServeHTTP(w, r)
 
 		require.Equal(t, crlf(`{"ans":""}`), w.Body.String())
 	})
@@ -546,11 +546,11 @@ func TestContextNoBody_MustBody(t *testing.T) {
 func TestContextNoBody_Redirect(t *testing.T) {
 	s := NewServer()
 
-	Get(s, "/", func(c ContextNoBody) (any, error) {
+	Get(s.RouterGroup(), "/", func(c ContextNoBody) (any, error) {
 		return c.Redirect(301, "/foo")
 	})
 
-	Get(s, "/foo", func(c ContextNoBody) (ans, error) {
+	Get(s.RouterGroup(), "/foo", func(c ContextNoBody) (ans, error) {
 		return ans{Ans: "foo"}, nil
 	})
 
@@ -558,7 +558,7 @@ func TestContextNoBody_Redirect(t *testing.T) {
 		r := httptest.NewRequest("GET", "/", nil)
 		w := httptest.NewRecorder()
 
-		s.Mux.ServeHTTP(w, r)
+		s.ServeHTTP(w, r)
 
 		require.Equal(t, 301, w.Code)
 		require.Equal(t, "/foo", w.Header().Get("Location"))

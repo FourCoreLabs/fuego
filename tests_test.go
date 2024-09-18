@@ -15,7 +15,7 @@ func TestContentType(t *testing.T) {
 	server := NewServer()
 
 	t.Run("Sends application/problem+json when return type is HTTPError", func(t *testing.T) {
-		GetStd(server, "/json-problems", func(w http.ResponseWriter, r *http.Request) {
+		GetStd(server.RouterGroup(), "/json-problems", func(w http.ResponseWriter, r *http.Request) {
 			SendJSONError(w, nil, UnauthorizedError{
 				Title: "Unauthorized",
 			})
@@ -23,7 +23,7 @@ func TestContentType(t *testing.T) {
 
 		req := httptest.NewRequest("GET", "/json-problems", nil)
 		w := httptest.NewRecorder()
-		server.Mux.ServeHTTP(w, req)
+		server.ServeHTTP(w, req)
 
 		require.Equal(t, "application/problem+json", w.Result().Header.Get("Content-Type"))
 		require.Equal(t, 401, w.Code)
@@ -31,13 +31,13 @@ func TestContentType(t *testing.T) {
 	})
 
 	t.Run("Sends application/json when return type is not HTTPError", func(t *testing.T) {
-		GetStd(server, "/json", func(w http.ResponseWriter, r *http.Request) {
+		GetStd(server.RouterGroup(), "/json", func(w http.ResponseWriter, r *http.Request) {
 			SendJSONError(w, nil, errors.New("error"))
 		})
 
 		req := httptest.NewRequest("GET", "/json", nil)
 		w := httptest.NewRecorder()
-		server.Mux.ServeHTTP(w, req)
+		server.ServeHTTP(w, req)
 
 		require.Equal(t, "application/json", w.Header().Get("Content-Type"))
 		require.Equal(t, 500, w.Code)

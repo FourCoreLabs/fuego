@@ -8,7 +8,7 @@ import (
 
 func TestTags(t *testing.T) {
 	s := NewServer()
-	route := Get(s, "/test", testController).
+	route := Get(s.RouterGroup(), "/test", testController).
 		Tags("my-tag").
 		Description("my description").
 		Summary("my summary").
@@ -22,7 +22,7 @@ func TestTags(t *testing.T) {
 
 func TestAddTags(t *testing.T) {
 	s := NewServer()
-	route := Get(s, "/test", func(ctx *ContextNoBody) (string, error) {
+	route := Get(s.RouterGroup(), "/test", func(ctx *ContextNoBody) (string, error) {
 		return "test", nil
 	}).
 		AddTags("my-tag").
@@ -33,7 +33,7 @@ func TestAddTags(t *testing.T) {
 
 func TestRemoveTags(t *testing.T) {
 	s := NewServer()
-	route := Get(s, "/test", func(ctx *ContextNoBody) (string, error) {
+	route := Get(s.RouterGroup(), "/test", func(ctx *ContextNoBody) (string, error) {
 		return "test", nil
 	}).
 		AddTags("my-tag").
@@ -45,7 +45,7 @@ func TestRemoveTags(t *testing.T) {
 
 func TestQueryParams(t *testing.T) {
 	s := NewServer()
-	route := Get(s, "/test", func(ctx *ContextNoBody) (string, error) {
+	route := Get(s.RouterGroup(), "/test", func(ctx *ContextNoBody) (string, error) {
 		return "test", nil
 	}).
 		QueryParam("my-param", "my description")
@@ -55,7 +55,7 @@ func TestQueryParams(t *testing.T) {
 
 func TestHeaderParams(t *testing.T) {
 	s := NewServer()
-	route := Get(s, "/test", testController).
+	route := Get(s.RouterGroup(), "/test", testController).
 		Header("my-header", "my description")
 
 	require.Equal(t, "my description", route.Operation.Parameters.GetByInAndName("header", "my-header").Description)
@@ -64,7 +64,7 @@ func TestHeaderParams(t *testing.T) {
 func TestRequestContentType(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
 		s := NewServer()
-		route := Post(s, "/test", testControllerWithBody).
+		route := Post(s.RouterGroup(), "/test", testControllerWithBody).
 			RequestContentType("application/json")
 
 		content := route.Operation.RequestBody.Value.Content
@@ -77,7 +77,7 @@ func TestRequestContentType(t *testing.T) {
 
 	t.Run("variadic", func(t *testing.T) {
 		s := NewServer()
-		route := Post(s, "/test", testControllerWithBody).
+		route := Post(s.RouterGroup(), "/test", testControllerWithBody).
 			RequestContentType("application/json", "my/content-type")
 
 		content := route.Operation.RequestBody.Value.Content
@@ -95,7 +95,7 @@ func TestCustomError(t *testing.T) {
 		Message string
 	}
 	s := NewServer()
-	route := Get(s, "/test", testController).
+	route := Get(s.RouterGroup(), "/test", testController).
 		AddError(400, "My Validation Error", MyError{})
 
 	require.Equal(t, "My Validation Error", *route.Operation.Responses.Map()["400"].Value.Description)
@@ -114,8 +114,8 @@ func TestCustomErrorGlobalAndOnRoute(t *testing.T) {
 		Message string
 	}
 
-	routeGlobal := Get(s, "/test-global", testController)
-	routeCustom := Get(s, "/test-custom", testController).
+	routeGlobal := Get(s.RouterGroup(), "/test-global", testController)
+	routeCustom := Get(s.RouterGroup(), "/test-custom", testController).
 		AddError(400, "My Local Error", MyLocalError{}).
 		AddError(419, "My Local Teapot")
 
@@ -131,7 +131,7 @@ func TestCustomErrorGlobalAndOnRoute(t *testing.T) {
 func TestCookieParams(t *testing.T) {
 	t.Run("basic cookie", func(t *testing.T) {
 		s := NewServer()
-		route := Get(s, "/test", testController).
+		route := Get(s.RouterGroup(), "/test", testController).
 			Cookie("my-cookie", "my description")
 
 		require.Equal(t, "my description", route.Operation.Parameters.GetByInAndName("cookie", "my-cookie").Description)
@@ -139,7 +139,7 @@ func TestCookieParams(t *testing.T) {
 
 	t.Run("with more parameters", func(t *testing.T) {
 		s := NewServer()
-		route := Get(s, "/test", testController).
+		route := Get(s.RouterGroup(), "/test", testController).
 			Cookie("my-cookie", "my description", OpenAPIParamOption{Required: true, Example: "my-example"})
 
 		require.Equal(t, "my description", route.Operation.Parameters.GetByInAndName("cookie", "my-cookie").Description)

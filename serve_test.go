@@ -9,10 +9,8 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -259,20 +257,20 @@ func TestServeRenderer(t *testing.T) {
 	)
 
 	t.Run("can serve renderer", func(t *testing.T) {
-		Get(s, "/", func(c *ContextNoBody) (Renderer, error) {
+		Get(s.RouterGroup(), "/", func(c *ContextNoBody) (Renderer, error) {
 			return testRenderer{}, nil
 		})
-		Get(s, "/error-in-controller", func(c *ContextNoBody) (Renderer, error) {
+		Get(s.RouterGroup(), "/error-in-controller", func(c *ContextNoBody) (Renderer, error) {
 			return nil, errors.New("error")
 		})
-		Get(s, "/error-in-rendering", func(c *ContextNoBody) (Renderer, error) {
+		Get(s.RouterGroup(), "/error-in-rendering", func(c *ContextNoBody) (Renderer, error) {
 			return testErrorRenderer{}, nil
 		})
 
 		t.Run("normal return", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 200, w.Code)
 			require.Equal(t, "hello", w.Body.String())
@@ -281,7 +279,7 @@ func TestServeRenderer(t *testing.T) {
 		t.Run("error return", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/error-in-controller", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 500, w.Code)
 			require.Equal(t, "<body><h1>error</h1></body>", w.Body.String())
@@ -290,7 +288,7 @@ func TestServeRenderer(t *testing.T) {
 		t.Run("error in rendering", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/error-in-rendering", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 500, w.Code)
 			require.Equal(t, "<body><h1>error</h1></body>", w.Body.String())
@@ -298,20 +296,20 @@ func TestServeRenderer(t *testing.T) {
 	})
 
 	t.Run("can serve ctx renderer", func(t *testing.T) {
-		Get(s, "/ctx", func(c *ContextNoBody) (CtxRenderer, error) {
+		Get(s.RouterGroup(), "/ctx", func(c *ContextNoBody) (CtxRenderer, error) {
 			return testCtxRenderer{}, nil
 		})
-		Get(s, "/ctx/error-in-controller", func(c *ContextNoBody) (CtxRenderer, error) {
+		Get(s.RouterGroup(), "/ctx/error-in-controller", func(c *ContextNoBody) (CtxRenderer, error) {
 			return nil, errors.New("error")
 		})
-		Get(s, "/ctx/error-in-rendering", func(c *ContextNoBody) (CtxRenderer, error) {
+		Get(s.RouterGroup(), "/ctx/error-in-rendering", func(c *ContextNoBody) (CtxRenderer, error) {
 			return testCtxErrorRenderer{}, nil
 		})
 
 		t.Run("normal return", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/ctx", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 200, w.Code)
 			require.Equal(t, "world", w.Body.String())
@@ -320,7 +318,7 @@ func TestServeRenderer(t *testing.T) {
 		t.Run("error return", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/ctx/error-in-controller", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 500, w.Code)
 			require.Equal(t, "<body><h1>error</h1></body>", w.Body.String())
@@ -329,7 +327,7 @@ func TestServeRenderer(t *testing.T) {
 		t.Run("error in rendering", func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/ctx/error-in-rendering", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			require.Equal(t, 500, w.Code)
 			require.Equal(t, "<body><h1>error</h1></body>", w.Body.String())
@@ -340,7 +338,7 @@ func TestServeRenderer(t *testing.T) {
 func TestServeError(t *testing.T) {
 	s := NewServer()
 
-	Get(s, "/ctx/error-in-controller", func(c *ContextNoBody) (CtxRenderer, error) {
+	Get(s.RouterGroup(), "/ctx/error-in-controller", func(c *ContextNoBody) (CtxRenderer, error) {
 		return nil, errors.New("error")
 	})
 
@@ -348,7 +346,7 @@ func TestServeError(t *testing.T) {
 		req := httptest.NewRequest("GET", "/ctx/error-in-controller", nil)
 		req.Header.Set("Accept", "text/html")
 		w := httptest.NewRecorder()
-		s.Mux.ServeHTTP(w, req)
+		s.ServeHTTP(w, req)
 
 		require.Equal(t, 500, w.Code)
 		require.Equal(t, "Internal Server Error (500): ", w.Body.String())
@@ -429,16 +427,18 @@ func TestServer_Run(t *testing.T) {
 			WithoutLogger(),
 		)
 
-		Get(s, "/test", func(ctx *ContextNoBody) (string, error) {
+		Get(s.RouterGroup(), "/test", func(ctx *ContextNoBody) (string, error) {
 			return "OK", nil
 		})
 
+		sh := http.Server{Addr: "localhost:9999", Handler: s}
 		go func() {
-			s.Run()
+			sh.ListenAndServe()
 		}()
 		defer func() { // stop our test server when we are done
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			if err := s.Server.Shutdown(ctx); err != nil {
+
+			if err := sh.Shutdown(ctx); err != nil {
 				t.Log(err)
 			}
 			cancel()
@@ -447,95 +447,11 @@ func TestServer_Run(t *testing.T) {
 		require.Eventually(t, func() bool {
 			req := httptest.NewRequest("GET", "/test", nil)
 			w := httptest.NewRecorder()
-			s.Mux.ServeHTTP(w, req)
+			s.ServeHTTP(w, req)
 
 			return w.Body.String() == `OK`
 		}, 5*time.Millisecond, 500*time.Microsecond)
 	})
-}
-
-func TestServer_RunTLS(t *testing.T) {
-	// This is not a standard test, it is here to ensure that the server can run.
-	// Please do not run this kind of test for your controllers, it is NOT unit testing.
-	testHelper, err := newTLSTestHelper()
-	if err != nil {
-		t.Fatal(err)
-	}
-	testTLSConfig, err := testHelper.getTLSConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-	testCertFile, testKeyFile, err := testHelper.getTLSFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(testCertFile)
-	defer os.Remove(testKeyFile)
-
-	tt := []struct {
-		name      string
-		tlsConfig *tls.Config
-		certFile  string
-		keyFile   string
-	}{
-		{
-			name:      "can run TLS server with TLS config and empty files",
-			tlsConfig: testTLSConfig,
-		},
-		{
-			name:     "can run TLS server with TLS files",
-			certFile: testCertFile,
-			keyFile:  testKeyFile,
-		},
-	}
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			s := NewServer(WithoutLogger())
-
-			if tc.tlsConfig != nil {
-				s.Server.TLSConfig = tc.tlsConfig
-			}
-
-			Get(s, "/test", func(ctx *ContextNoBody) (string, error) {
-				return "OK", nil
-			})
-
-			go func() { // start our test server async
-				_ = s.RunTLS(tc.certFile, tc.keyFile)
-			}()
-			defer func() { // stop our test server when we are done
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-				if err := s.Server.Shutdown(ctx); err != nil {
-					t.Log(err)
-				}
-				cancel()
-			}()
-
-			// wait for the server to start
-			conn, err := net.DialTimeout("tcp", s.Server.Addr, 1*time.Second)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer conn.Close()
-
-			client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-			req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/test", s.Server.Addr), nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req.Header.Set("Accept", "text/plain")
-
-			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				t.Fatal(err)
-			}
-			require.Equal(t, []byte("OK"), body)
-		})
-	}
 }
 
 type tlsTestHelper struct {

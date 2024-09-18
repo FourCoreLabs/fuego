@@ -1,7 +1,6 @@
 package fuego
 
 import (
-	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -9,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -27,41 +28,39 @@ type OpenAPIConfig struct {
 	PrettyFormatJson bool                              // Pretty prints the OpenAPI spec with proper JSON indentation
 }
 
-var defaultOpenAPIConfig = OpenAPIConfig{
-	SwaggerUrl:   "/swagger",
-	JsonUrl:      "/swagger/openapi.json",
-	JsonFilePath: "doc/openapi.json",
-	UIHandler:    DefaultOpenAPIHandler,
+type RouterGroup struct {
+	rg     *gin.RouterGroup
+	server *Server
+
+	groupTag string
+
+	// OpenAPI documentation tags used for logical groupings of operations
+	// These tags will be inherited by child Routes/Groups
+	tags []string
+
+	// OpenAPI documentation parameters used for all group routes
+	params []OpenAPIParam
+
+	DisableOpenapi bool // If true, the routes within the group will not generate an OpenAPI spec.
+	middlewares    []func(http.Handler) http.Handler
 }
 
 type Server struct {
 	// The underlying HTTP server
-	*http.Server
 
 	// Will be plugged into the Server field.
 	// Not using directly the Server field so
 	// [http.ServeMux.Handle] can also be used to register routes.
-	Mux *http.ServeMux
+	engine *gin.Engine
+	rg     RouterGroup
 
 	// Not stored with the other middlewares because it is a special case :
 	// it applies on routes that are not registered.
 	// For example, it allows OPTIONS /foo even if it is not declared (only GET /foo is declared).
 	corsMiddleware func(http.Handler) http.Handler
 
-	// OpenAPI documentation tags used for logical groupings of operations
-	// These tags will be inherited by child Routes/Groups
-	tags []string
-
-	// OpenAPI documentation parameters used for all server routes
-	params []OpenAPIParam
-
-	middlewares []func(http.Handler) http.Handler
-
 	disableStartupMessages bool
 	disableAutoGroupTags   bool
-	groupTag               string
-	mainRouter             *Server // Ref to the main router (used for groups)
-	basePath               string  // Base path of the group
 
 	globalOpenAPIResponses []openAPIError // Global error responses
 
@@ -74,17 +73,12 @@ type Server struct {
 	template *template.Template // TODO: use preparsed templates
 
 	DisallowUnknownFields bool // If true, the server will return an error if the request body contains unknown fields. Useful for quick debugging in development.
-	DisableOpenapi        bool // If true, the routes within the server will not generate an OpenAPI spec.
 	maxBodySize           int64
 
 	Serialize      Sender                // Custom serializer that overrides the default one.
 	SerializeError ErrorSender           // Used to serialize the error response. Defaults to [SendError].
 	ErrorHandler   func(err error) error // Used to transform any error into a unified error type structure with status code. Defaults to [ErrorHandler]
 	startTime      time.Time
-
-	OpenAPIConfig OpenAPIConfig
-
-	isTLS bool
 }
 
 // NewServer creates a new server with the given options.
@@ -99,22 +93,17 @@ type Server struct {
 // Some default options are set in the function body.
 func NewServer(options ...func(*Server)) *Server {
 	s := &Server{
-		Server: &http.Server{
-			ReadTimeout:       30 * time.Second,
-			ReadHeaderTimeout: 30 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			IdleTimeout:       30 * time.Second,
-		},
-		Mux:         http.NewServeMux(),
 		OpenApiSpec: NewOpenApiSpec(),
+		Security:    NewSecurity(),
+	}
 
-		OpenAPIConfig: defaultOpenAPIConfig,
-
-		Security: NewSecurity(),
+	s.engine = gin.New()
+	s.rg = RouterGroup{
+		server: s,
+		rg:     &s.engine.RouterGroup,
 	}
 
 	defaultOptions := [...]func(*Server){
-		WithAddr("localhost:9999"),
 		WithDisallowUnknownFields(true),
 		WithSerializer(Send),
 		WithErrorSerializer(SendError),
@@ -127,25 +116,32 @@ func NewServer(options ...func(*Server)) *Server {
 		option(s)
 	}
 
-	s.OpenApiSpec.Servers = append(s.OpenApiSpec.Servers, &openapi3.Server{
-		URL:         "http://" + s.Addr,
-		Description: "local server",
-	})
-
 	s.startTime = time.Now()
 
 	if s.autoAuth.Enabled {
-		Post(s, "/auth/login", s.Security.LoginHandler(s.autoAuth.VerifyUserInfo)).Tags("Auth").Summary("Login")
-		PostStd(s, "/auth/logout", s.Security.CookieLogoutHandler).Tags("Auth").Summary("Logout")
+		Post(s.RouterGroup(), "/auth/login", s.Security.LoginHandler(s.autoAuth.VerifyUserInfo)).Tags("Auth").Summary("Login")
+		PostStd(s.RouterGroup(), "/auth/logout", s.Security.CookieLogoutHandler).Tags("Auth").Summary("Logout")
 
-		s.middlewares = []func(http.Handler) http.Handler{
+		s.RouterGroup().middlewares = []func(http.Handler) http.Handler{
 			s.Security.TokenToContext(TokenFromCookie, TokenFromHeader),
 		}
 
-		PostStd(s, "/auth/refresh", s.Security.RefreshHandler).Tags("Auth").Summary("Refresh token")
+		PostStd(s.RouterGroup(), "/auth/refresh", s.Security.RefreshHandler).Tags("Auth").Summary("Refresh token")
 	}
 
 	return s
+}
+
+func (s *Server) RouterGroup() *RouterGroup {
+	return &s.rg
+}
+
+func (group *RouterGroup) newRouteGroup(path string) *RouterGroup {
+	return &RouterGroup{
+		rg:       group.rg.Group(path),
+		server:   group.server,
+		groupTag: strings.TrimLeft(path, "/"),
+	}
 }
 
 // WithTemplateFS sets the filesystem used to load templates.
@@ -250,10 +246,6 @@ func WithTemplateGlobs(patterns ...string) func(*Server) {
 	}
 }
 
-func WithBasePath(basePath string) func(*Server) {
-	return func(c *Server) { c.basePath = basePath }
-}
-
 func WithMaxBodySize(maxBodySize int64) func(*Server) {
 	return func(c *Server) { c.maxBodySize = maxBodySize }
 }
@@ -271,21 +263,6 @@ func WithAutoAuth(verifyUserInfo func(user, password string) (jwt.Claims, error)
 // Defaults to true.
 func WithDisallowUnknownFields(b bool) func(*Server) {
 	return func(c *Server) { c.DisallowUnknownFields = b }
-}
-
-// WithPort sets the port of the server. For example, 8080.
-// If not specified, the default port is 9999.
-// If you want to use a different address, use [WithAddr] instead.
-//
-// Deprecated: Please use fuego.WithAddr(addr string)
-func WithPort(port int) func(*Server) {
-	return func(s *Server) { s.Server.Addr = fmt.Sprintf("localhost:%d", port) }
-}
-
-// WithAddr optionally specifies the TCP address for the server to listen on, in the form "host:port".
-// If not specified addr ':9999' will be used.
-func WithAddr(addr string) func(*Server) {
-	return func(c *Server) { c.Server.Addr = addr }
 }
 
 // WithXML sets the serializer to XML
@@ -335,41 +312,6 @@ func WithoutLogger() func(*Server) {
 	}
 }
 
-func WithOpenAPIConfig(openapiConfig OpenAPIConfig) func(*Server) {
-	return func(s *Server) {
-		if openapiConfig.JsonUrl != "" {
-			s.OpenAPIConfig.JsonUrl = openapiConfig.JsonUrl
-		}
-
-		if openapiConfig.SwaggerUrl != "" {
-			s.OpenAPIConfig.SwaggerUrl = openapiConfig.SwaggerUrl
-		}
-
-		if openapiConfig.JsonFilePath != "" {
-			s.OpenAPIConfig.JsonFilePath = openapiConfig.JsonFilePath
-		}
-
-		if openapiConfig.UIHandler != nil {
-			s.OpenAPIConfig.UIHandler = openapiConfig.UIHandler
-		}
-
-		s.OpenAPIConfig.DisableSwagger = openapiConfig.DisableSwagger
-		s.OpenAPIConfig.DisableSwaggerUI = openapiConfig.DisableSwaggerUI
-		s.OpenAPIConfig.DisableLocalSave = openapiConfig.DisableLocalSave
-		s.OpenAPIConfig.PrettyFormatJson = openapiConfig.PrettyFormatJson
-
-		if !validateJsonSpecUrl(s.OpenAPIConfig.JsonUrl) {
-			slog.Error("Error serving openapi json spec. Value of 's.OpenAPIConfig.JsonSpecUrl' option is not valid", "url", s.OpenAPIConfig.JsonUrl)
-			return
-		}
-
-		if !validateSwaggerUrl(s.OpenAPIConfig.SwaggerUrl) {
-			slog.Error("Error serving swagger ui. Value of 's.OpenAPIConfig.SwaggerUrl' option is not valid", "url", s.OpenAPIConfig.SwaggerUrl)
-			return
-		}
-	}
-}
-
 // WithValidator sets the validator to be used by the fuego server.
 // If no validator is provided, a default validator will be used.
 //
@@ -394,21 +336,21 @@ func WithValidator(newValidator *validator.Validate) func(*Server) {
 
 // Replaces Tags for the Server (i.e Group)
 // By default, the tag is the type of the response body.
-func (s *Server) Tags(tags ...string) *Server {
+func (s *RouterGroup) Tags(tags ...string) *RouterGroup {
 	s.tags = tags
 	return s
 }
 
 // AddTags adds tags from the Server (i.e Group)
 // Tags from the parent Groups will be respected
-func (s *Server) AddTags(tags ...string) *Server {
+func (s *RouterGroup) AddTags(tags ...string) *RouterGroup {
 	s.tags = append(s.tags, tags...)
 	return s
 }
 
 // RemoveTags removes tags from the Server (i.e Group)
 // if the parent Group(s) has matching tags they will be removed
-func (s *Server) RemoveTags(tags ...string) *Server {
+func (s *RouterGroup) RemoveTags(tags ...string) *RouterGroup {
 	for _, tag := range tags {
 		for i, t := range s.tags {
 			if t == tag {
@@ -417,11 +359,12 @@ func (s *Server) RemoveTags(tags ...string) *Server {
 			}
 		}
 	}
+
 	return s
 }
 
 // Registers a param for all server routes.
-func (s *Server) Param(name, description string, params ...OpenAPIParamOption) *Server {
+func (s *RouterGroup) Param(name, description string, params ...OpenAPIParamOption) *RouterGroup {
 	param := OpenAPIParam{Name: name, Description: description}
 
 	for _, p := range params {
@@ -437,24 +380,23 @@ func (s *Server) Param(name, description string, params ...OpenAPIParamOption) *
 	}
 
 	s.params = append(s.params, param)
-
 	return s
 }
 
 // Registers a header param for all server routes.
-func (s *Server) Header(name, description string, params ...OpenAPIParamOption) *Server {
+func (s *RouterGroup) Header(name, description string, params ...OpenAPIParamOption) *RouterGroup {
 	s.Param(name, description, append(params, OpenAPIParamOption{Type: HeaderParamType})...)
 	return s
 }
 
 // Registers a cookie param for all server routes.
-func (s *Server) Cookie(name, description string, params ...OpenAPIParamOption) *Server {
+func (s *RouterGroup) Cookie(name, description string, params ...OpenAPIParamOption) *RouterGroup {
 	s.Param(name, description, append(params, OpenAPIParamOption{Type: CookieParamType})...)
 	return s
 }
 
 // Registers a query param for all server routes.
-func (s *Server) Query(name, description string, params ...OpenAPIParamOption) *Server {
+func (s *RouterGroup) Query(name, description string, params ...OpenAPIParamOption) *RouterGroup {
 	s.Param(name, description, append(params, OpenAPIParamOption{Type: QueryParamType})...)
 	return s
 }
