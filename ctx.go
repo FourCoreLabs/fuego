@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -123,6 +125,7 @@ type ContextNoBody struct {
 
 	fs        fs.FS
 	templates *template.Template
+	ginCtx    *gin.Context
 
 	readOptions readOptions
 }
@@ -196,6 +199,11 @@ func (c ContextNoBody) Context() context.Context {
 	return c.Req.Context()
 }
 
+// GinContext returns *gin.Context
+func (c ContextNoBody) GinContext() *gin.Context {
+	return c.ginCtx
+}
+
 // Get request header
 func (c ContextNoBody) Header(key string) string {
 	return c.Request().Header.Get(key)
@@ -236,6 +244,10 @@ func (c ContextNoBody) Render(templateToExecute string, data any, layoutsGlobs .
 
 // PathParams returns the path parameters of the request.
 func (c ContextNoBody) PathParam(name string) string {
+	if c.ginCtx != nil {
+		return c.ginCtx.Param(name)
+	}
+
 	return c.Req.PathValue(name)
 }
 

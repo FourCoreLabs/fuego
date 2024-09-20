@@ -1,6 +1,7 @@
 package fuego
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -9,6 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type contextKeyType string
+
+const GinContextKey contextKeyType = gin.ContextKey
 
 // Run starts the server.
 // It is blocking.
@@ -43,8 +48,12 @@ func initContext[Contextable ctx[Body], Body any](baseContext ContextNoBody) Con
 	}
 }
 
-func setPattern(ctx *gin.Context) {
-	ctx.Request.Pattern = ctx.FullPath()
+func wrapGinContext(handler http.Handler) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.Request.Pattern = ctx.FullPath()
+		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), GinContextKey, ctx))
+		handler.ServeHTTP(ctx.Writer, ctx.Request)
+	}
 }
 
 // HTTPHandler converts a Fuego controller into a http.HandlerFunc.
@@ -62,6 +71,9 @@ func HTTPHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, control
 		if s.template != nil {
 			templates = template.Must(s.template.Clone())
 		}
+
+		ginCtx, _ := r.Context().Value(GinContextKey).(*gin.Context)
+
 		ctx := initContext[Contextable](ContextNoBody{
 			Req: r,
 			Res: w,
@@ -71,6 +83,7 @@ func HTTPHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, control
 			},
 			fs:        s.fs,
 			templates: templates,
+			ginCtx:    ginCtx,
 		})
 
 		// CONTROLLER
