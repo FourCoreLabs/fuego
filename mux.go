@@ -13,6 +13,30 @@ type GroupOption struct {
 	Tag     openapi3.Tag
 }
 
+func WithoutTag() func(opt *GroupOption) {
+	return func(opt *GroupOption) {
+		opt.HideTag = true
+	}
+}
+
+func WithTag(tag openapi3.Tag) func(opt *GroupOption) {
+	return func(opt *GroupOption) {
+		opt.Tag = tag
+	}
+}
+
+func WithName(name string) func(opt *GroupOption) {
+	return func(opt *GroupOption) {
+		opt.Tag.Name = name
+	}
+}
+
+func WithDescription(desc string) func(opt *GroupOption) {
+	return func(opt *GroupOption) {
+		opt.Tag.Description = desc
+	}
+}
+
 // Group allows grouping routes under a common path.
 // Middlewares are scoped to the group.
 // For example:
@@ -27,22 +51,27 @@ type GroupOption struct {
 //		return ans{Ans: "users"}, nil
 //	})
 //	s.Run()
-func (group *RouterGroup) Group(path string, groupOption ...GroupOption) *RouterGroup {
+func (group *RouterGroup) Group(path string, opts ...func(*GroupOption)) *RouterGroup {
 	newGroup := group.newRouteGroup(path)
+	groupOption := &GroupOption{
+		Tag: openapi3.Tag{Name: newGroup.groupTag},
+	}
+
+	for _, opt := range opts {
+		opt(groupOption)
+	}
 
 	if newGroup.groupTag != "" && !group.server.disableAutoGroupTags {
-		groupOption = append(groupOption, GroupOption{Tag: openapi3.Tag{Name: newGroup.groupTag}})
-
-		if !groupOption[0].HideTag {
-			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &groupOption[0].Tag)
+		if !groupOption.HideTag {
+			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &groupOption.Tag)
 		}
 	}
 
 	return newGroup
 }
 
-func Group(group *RouterGroup, path string, groupOption ...GroupOption) *RouterGroup {
-	return group.Group(path, groupOption...)
+func Group(group *RouterGroup, path string, opts ...func(*GroupOption)) *RouterGroup {
+	return group.Group(path, opts...)
 }
 
 type Route[ResponseBody any, RequestBody any] struct {
