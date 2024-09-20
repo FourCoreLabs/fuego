@@ -133,7 +133,7 @@ func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.H
 	}
 
 	if route.Operation.OperationID == "" {
-		route.Operation.OperationID = route.Method + "_" + route.Path
+		route.Operation.OperationID = route.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(route.Path, "{", ":"), "}", "")
 	}
 
 	route.mainRouter = group.server
