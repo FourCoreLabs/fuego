@@ -61,6 +61,10 @@ func (group *RouterGroup) Group(path string, opts ...func(*GroupOption)) *Router
 		opt(groupOption)
 	}
 
+	if groupOption.Tag.Name != "" {
+		newGroup.groupTag = groupOption.Tag.Name
+	}
+
 	if newGroup.groupTag != "" && !group.server.disableAutoGroupTags {
 		if !groupOption.HideTag {
 			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &groupOption.Tag)
