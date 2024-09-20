@@ -151,10 +151,15 @@ func (s *Server) RouterGroup() *RouterGroup {
 }
 
 func (group *RouterGroup) newRouteGroup(path string) *RouterGroup {
+	groupTag := strings.TrimLeft(path, "/")
+	if groupTag == "" {
+		groupTag = group.groupTag
+	}
+
 	return &RouterGroup{
 		rg:          group.rg.Group(path),
 		server:      group.server,
-		groupTag:    strings.TrimLeft(path, "/"),
+		groupTag:    groupTag,
 		middlewares: slices.Clone(group.middlewares),
 		params:      slices.Clone(group.params),
 		tags:        slices.Clone(group.tags),
