@@ -138,7 +138,6 @@ func newRequestBody[RequestBody any](tag schemaTag, consumes []string) *openapi3
 	content := openapi3.NewContentWithSchemaRef(&tag.SchemaRef, consumes)
 	return openapi3.NewRequestBody().
 		WithRequired(true).
-		WithDescription("Request body for " + reflect.TypeOf(*new(RequestBody)).String()).
 		WithContent(content)
 }
 
