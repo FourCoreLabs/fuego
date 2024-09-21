@@ -9,9 +9,9 @@ import (
 type ParamType string
 
 const (
-	QueryParamType  ParamType = "query"
-	HeaderParamType ParamType = "header"
-	CookieParamType ParamType = "cookie"
+	QueryParamType  ParamType = openapi3.ParameterInQuery
+	HeaderParamType ParamType = openapi3.ParameterInHeader
+	CookieParamType ParamType = openapi3.ParameterInCookie
 )
 
 type OpenAPIParam struct {
@@ -23,7 +23,26 @@ type OpenAPIParam struct {
 type OpenAPIParamOption struct {
 	Required bool
 	Example  string
-	Type     ParamType
+	Schema   *openapi3.Schema
+}
+
+func WithRequiredParam() func(opt *OpenAPIParamOption) {
+	return func(opt *OpenAPIParamOption) {
+		opt.Required = true
+	}
+}
+
+func WithExample(example string) func(opt *OpenAPIParamOption) {
+	return func(opt *OpenAPIParamOption) {
+		opt.Example = example
+	}
+}
+
+func WithSchema(schema *openapi3.Schema) func(opt *OpenAPIParamOption) {
+	return func(opt *OpenAPIParamOption) {
+		s := *schema
+		opt.Schema = &s
+	}
 }
 
 // Overrides the description for the route.
@@ -47,19 +66,27 @@ func (r Route[ResponseBody, RequestBody]) OperationID(operationID string) Route[
 // Param registers a parameter for the route.
 // The paramType can be "query", "header" or "cookie" as defined in [ParamType].
 // [Cookie], [Header], [QueryParam] are shortcuts for Param.
-func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, description string, params ...OpenAPIParamOption) Route[ResponseBody, RequestBody] {
+func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
 	openapiParam := openapi3.NewHeaderParameter(name)
 	openapiParam.Description = description
 	openapiParam.Schema = openapi3.NewStringSchema().NewRef()
 	openapiParam.In = string(paramType)
 
-	for _, param := range params {
-		if param.Required {
-			openapiParam.Required = param.Required
-		}
-		if param.Example != "" {
-			openapiParam.Example = param.Example
-		}
+	paramOpt := &OpenAPIParamOption{}
+	for _, opt := range opts {
+		opt(paramOpt)
+	}
+
+	if paramOpt.Schema != nil {
+		openapiParam.Schema = paramOpt.Schema.NewRef()
+	}
+
+	if paramOpt.Required {
+		openapiParam.Required = paramOpt.Required
+	}
+
+	if paramOpt.Example != "" {
+		openapiParam.Example = paramOpt.Example
 	}
 
 	r.Operation.AddParameter(openapiParam)
@@ -68,20 +95,20 @@ func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, descr
 }
 
 // Header registers a header parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Header(name, description string, params ...OpenAPIParamOption) Route[ResponseBody, RequestBody] {
-	r.Param(HeaderParamType, name, description, params...)
+func (r Route[ResponseBody, RequestBody]) Header(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+	r.Param(HeaderParamType, name, description, opts...)
 	return r
 }
 
 // Cookie registers a cookie parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Cookie(name, description string, params ...OpenAPIParamOption) Route[ResponseBody, RequestBody] {
-	r.Param(CookieParamType, name, description, params...)
+func (r Route[ResponseBody, RequestBody]) Cookie(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+	r.Param(CookieParamType, name, description, opts...)
 	return r
 }
 
 // QueryParam registers a query parameter for the route.
-func (r Route[ResponseBody, RequestBody]) QueryParam(name, description string, params ...OpenAPIParamOption) Route[ResponseBody, RequestBody] {
-	r.Param(QueryParamType, name, description, params...)
+func (r Route[ResponseBody, RequestBody]) Query(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+	r.Param(QueryParamType, name, description, opts...)
 	return r
 }
 
@@ -93,7 +120,7 @@ func (r Route[ResponseBody, RequestBody]) Tags(tags ...string) Route[ResponseBod
 }
 
 // Replace the available request Content-Types for the route.
-// By default, the request Content-Types are `application/json` and `application/xml`
+// By default, the request Content-Types is `application/json`.
 func (r Route[ResponseBody, RequestBody]) RequestContentType(consumes ...string) Route[ResponseBody, RequestBody] {
 	bodyTag := schemaTagFromType(r.mainRouter, *new(RequestBody))
 
