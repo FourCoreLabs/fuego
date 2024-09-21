@@ -386,19 +386,12 @@ func (s *RouterGroup) RemoveTags(tags ...string) *RouterGroup {
 }
 
 // Registers a param for all server routes.
-func (s *RouterGroup) Param(name, description string, params ...OpenAPIParamOption) *RouterGroup {
-	param := OpenAPIParam{Name: name, Description: description}
-
-	for _, p := range params {
-		if p.Required {
-			param.Required = p.Required
-		}
-		if p.Example != "" {
-			param.Example = p.Example
-		}
-		if p.Type != "" {
-			param.Type = p.Type
-		}
+func (s *RouterGroup) Param(paramType ParamType, name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+	param := OpenAPIParam{
+		Type:        paramType,
+		Name:        name,
+		Description: description,
+		opts:        opts,
 	}
 
 	s.params = append(s.params, param)
@@ -406,19 +399,19 @@ func (s *RouterGroup) Param(name, description string, params ...OpenAPIParamOpti
 }
 
 // Registers a header param for all server routes.
-func (s *RouterGroup) Header(name, description string, params ...OpenAPIParamOption) *RouterGroup {
-	s.Param(name, description, append(params, OpenAPIParamOption{Type: HeaderParamType})...)
+func (s *RouterGroup) Header(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+	s.Param(HeaderParamType, name, description, opts...)
 	return s
 }
 
 // Registers a cookie param for all server routes.
-func (s *RouterGroup) Cookie(name, description string, params ...OpenAPIParamOption) *RouterGroup {
-	s.Param(name, description, append(params, OpenAPIParamOption{Type: CookieParamType})...)
+func (s *RouterGroup) Cookie(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+	s.Param(CookieParamType, name, description, opts...)
 	return s
 }
 
 // Registers a query param for all server routes.
-func (s *RouterGroup) Query(name, description string, params ...OpenAPIParamOption) *RouterGroup {
-	s.Param(name, description, append(params, OpenAPIParamOption{Type: QueryParamType})...)
+func (s *RouterGroup) Query(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+	s.Param(QueryParamType, name, description, opts...)
 	return s
 }

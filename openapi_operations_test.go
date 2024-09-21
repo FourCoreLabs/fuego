@@ -48,7 +48,7 @@ func TestQueryParams(t *testing.T) {
 	route := Get(s.RouterGroup(), "/test", func(ctx *ContextNoBody) (string, error) {
 		return "test", nil
 	}).
-		QueryParam("my-param", "my description")
+		Query("my-param", "my description")
 
 	require.Equal(t, "my description", route.Operation.Parameters.GetByInAndName("query", "my-param").Description)
 }
@@ -140,7 +140,7 @@ func TestCookieParams(t *testing.T) {
 	t.Run("with more parameters", func(t *testing.T) {
 		s := NewServer()
 		route := Get(s.RouterGroup(), "/test", testController).
-			Cookie("my-cookie", "my description", OpenAPIParamOption{Required: true, Example: "my-example"})
+			Cookie("my-cookie", "my description", WithRequiredParam(), WithExample("my-example"))
 
 		require.Equal(t, "my description", route.Operation.Parameters.GetByInAndName("cookie", "my-cookie").Description)
 		require.Equal(t, true, route.Operation.Parameters.GetByInAndName("cookie", "my-cookie").Required)

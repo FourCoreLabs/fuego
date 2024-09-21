@@ -3,12 +3,8 @@ package fuego
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"reflect"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -71,45 +67,6 @@ func (s *Server) MarshalSpec(prettyFormatJSON bool) ([]byte, error) {
 	return json.Marshal(s.OpenApiSpec)
 }
 
-func (s *Server) saveOpenAPIToFile(jsonSpecLocalPath string, jsonSpec []byte) error {
-	jsonFolder := filepath.Dir(jsonSpecLocalPath)
-
-	err := os.MkdirAll(jsonFolder, 0o750)
-	if err != nil {
-		return errors.New("error creating docs directory")
-	}
-
-	f, err := os.Create(jsonSpecLocalPath) // #nosec G304 (file path provided by developer, not by user)
-	if err != nil {
-		return errors.New("error creating file")
-	}
-	defer f.Close()
-
-	_, err = f.Write(jsonSpec)
-	if err != nil {
-		return errors.New("error writing file ")
-	}
-
-	s.printOpenAPIMessage("JSON file: " + jsonSpecLocalPath)
-	return nil
-}
-
-func (s *Server) printOpenAPIMessage(msg string) {
-	if !s.disableStartupMessages {
-		slog.Info(msg)
-	}
-}
-
-func validateJsonSpecUrl(jsonSpecUrl string) bool {
-	jsonSpecUrlRegexp := regexp.MustCompile(`^\/[\/a-zA-Z0-9\-\_]+(.json)$`)
-	return jsonSpecUrlRegexp.MatchString(jsonSpecUrl)
-}
-
-func validateSwaggerUrl(swaggerUrl string) bool {
-	swaggerUrlRegexp := regexp.MustCompile(`^\/[\/a-zA-Z0-9\-\_]+[a-zA-Z0-9\-\_]$`)
-	return swaggerUrlRegexp.MatchString(swaggerUrl)
-}
-
 var generator = openapi3gen.NewGenerator(
 	openapi3gen.UseAllExportedFields(),
 )
@@ -130,7 +87,7 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	}
 
 	for _, param := range group.params {
-		route.Param(param.Type, param.Name, param.Description, param.OpenAPIParamOption)
+		route.Param(param.Type, param.Name, param.Description, param.opts...)
 	}
 
 	// Request Body

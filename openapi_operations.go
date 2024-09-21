@@ -17,7 +17,9 @@ const (
 type OpenAPIParam struct {
 	Name        string
 	Description string
-	OpenAPIParamOption
+	Type        ParamType
+
+	opts []func(*OpenAPIParamOption)
 }
 
 type OpenAPIParamOption struct {

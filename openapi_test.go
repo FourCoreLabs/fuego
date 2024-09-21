@@ -1,11 +1,8 @@
 package fuego
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -240,17 +237,6 @@ func TestServer_generateOpenAPI(t *testing.T) {
 	})
 }
 
-func lineCounter(t *testing.T, r io.Reader) int {
-	buf := make([]byte, 32*1024)
-	count := 1
-	lineSep := []byte{'\n'}
-
-	c, err := r.Read(buf)
-	require.NoError(t, err)
-	count += bytes.Count(buf[:c], lineSep)
-	return count
-}
-
 func BenchmarkRoutesRegistration(b *testing.B) {
 	for range b.N {
 		s := NewServer(
@@ -293,44 +279,6 @@ func BenchmarkServer_generateOpenAPI(b *testing.B) {
 
 		s.OutputOpenAPISpec()
 	}
-}
-
-func TestValidateJsonSpecUrl(t *testing.T) {
-	require.Equal(t, true, validateJsonSpecUrl("/path/to/jsonSpec.json"))
-	require.Equal(t, true, validateJsonSpecUrl("/spec.json"))
-	require.Equal(t, true, validateJsonSpecUrl("/path_/jsonSpec.json"))
-	require.Equal(t, false, validateJsonSpecUrl("path/to/jsonSpec.json"))
-	require.Equal(t, false, validateJsonSpecUrl("/path/to/jsonSpec"))
-	require.Equal(t, false, validateJsonSpecUrl("/path/to/jsonSpec.jsn"))
-}
-
-func TestValidateSwaggerUrl(t *testing.T) {
-	require.Equal(t, true, validateSwaggerUrl("/path/to/jsonSpec"))
-	require.Equal(t, true, validateSwaggerUrl("/swagger"))
-	require.Equal(t, true, validateSwaggerUrl("/Super-useful_swagger-2000"))
-	require.Equal(t, true, validateSwaggerUrl("/Super-useful_swagger-"))
-	require.Equal(t, true, validateSwaggerUrl("/Super-useful_swagger__"))
-	require.Equal(t, true, validateSwaggerUrl("/Super-useful_swaggeR"))
-	require.Equal(t, false, validateSwaggerUrl("/spec.json"))
-	require.Equal(t, false, validateSwaggerUrl("/path_/swagger.json"))
-	require.Equal(t, false, validateSwaggerUrl("path/to/jsonSpec."))
-	require.Equal(t, false, validateSwaggerUrl("path/to/jsonSpec%"))
-}
-
-func TestLocalSave(t *testing.T) {
-	s := NewServer()
-	t.Run("with valid path", func(t *testing.T) {
-		err := s.saveOpenAPIToFile("/tmp/jsonSpec.json", []byte("test"))
-		require.NoError(t, err)
-
-		// cleanup
-		os.Remove("/tmp/jsonSpec.json")
-	})
-
-	t.Run("with invalid path", func(t *testing.T) {
-		err := s.saveOpenAPIToFile("///jsonSpec.json", []byte("test"))
-		require.Error(t, err)
-	})
 }
 
 func TestAutoGroupTags(t *testing.T) {
