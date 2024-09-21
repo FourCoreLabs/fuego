@@ -150,6 +150,12 @@ func (r Route[ResponseBody, RequestBody]) AddError(code int, description string,
 	return r
 }
 
+// add request description
+func (r Route[ResponseBody, RequestBody]) RequestDescription(desc string) Route[ResponseBody, RequestBody] {
+	r.Operation.RequestBody.Value.Description = desc
+	return r
+}
+
 func addResponse(s *Server, operation *openapi3.Operation, code int, description string, errorType ...any) {
 	var responseSchema schemaTag
 
