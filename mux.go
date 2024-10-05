@@ -52,22 +52,16 @@ func WithDescription(desc string) func(opt *GroupOption) {
 //	})
 //	s.Run()
 func (group *RouterGroup) Group(path string, opts ...func(*GroupOption)) *RouterGroup {
-	newGroup := group.newRouteGroup(path)
-	groupOption := &GroupOption{
-		Tag: openapi3.Tag{Name: newGroup.groupTag},
-	}
-
+	grpOpt := GroupOption{}
 	for _, opt := range opts {
-		opt(groupOption)
+		opt(&grpOpt)
 	}
 
-	if groupOption.Tag.Name != "" {
-		newGroup.groupTag = groupOption.Tag.Name
-	}
+	newGroup := group.newRouteGroup(path, grpOpt)
 
-	if newGroup.groupTag != "" && !group.server.disableAutoGroupTags {
-		if !groupOption.HideTag {
-			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &groupOption.Tag)
+	if newGroup.groupTag != "" && !group.server.disableAutoGroupTags && !group.DisableOpenapi {
+		if !grpOpt.HideTag {
+			group.server.OpenApiSpec.Tags = append(group.server.OpenApiSpec.Tags, &grpOpt.Tag)
 		}
 	}
 

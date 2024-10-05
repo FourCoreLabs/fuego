@@ -150,9 +150,17 @@ func (s *Server) RouterGroup() *RouterGroup {
 	return &s.rg
 }
 
-func (group *RouterGroup) newRouteGroup(path string) *RouterGroup {
+func (group *RouterGroup) newRouteGroup(path string, groupOption GroupOption) *RouterGroup {
 	groupTag := strings.TrimLeft(path, "/")
 	if groupTag == "" {
+		groupTag = group.groupTag
+	}
+
+	if groupOption.Tag.Name != "" {
+		groupTag = groupOption.Tag.Name
+	}
+
+	if groupOption.HideTag {
 		groupTag = group.groupTag
 	}
 
