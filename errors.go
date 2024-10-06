@@ -16,16 +16,20 @@ type ErrorWithStatus interface {
 
 // HTTPError is the error response used by the serialization part of the framework.
 type HTTPError struct {
-	Err      error       `json:"-" xml:"-"`                                                                            // Developer readable error message. Not shown to the user to avoid security leaks.
-	Title    string      `json:"title,omitempty" xml:"title,omitempty" description:"Short title of the error"`         // Short title of the error
-	Status   int         `json:"status,omitempty" xml:"status,omitempty" description:"HTTP status code" example:"403"` // HTTP status code. If using a different type than [HTTPError], for example [BadRequestError], this will be automatically overridden after Fuego error handling.
-	Detail   string      `json:"detail,omitempty" xml:"detail,omitempty" description:"Human readable error message"`   // Human readable error message
+	// Developer readable error message. Not shown to the user to avoid security leaks.
+	Err error `json:"-" xml:"-"`
+	// Short title of the error
+	Title string `json:"title,omitempty" xml:"title,omitempty" description:"Short title of the error" example:"failed to fetch details"`
+	// HTTP status code. If using a different type than [HTTPError], for example [BadRequestError], this will be automatically overridden after Fuego error handling.
+	Status int `json:"status,omitempty" xml:"status,omitempty" description:"HTTP status code" example:"403"`
+	// Human readable error message
+	Detail   string      `json:"detail,omitempty" xml:"detail,omitempty" description:"Human readable error message" example:"details cannot be loaded"`
 	Instance string      `json:"instance,omitempty" xml:"instance,omitempty"`
 	Errors   []ErrorItem `json:"errors,omitempty" xml:"errors,omitempty"`
 }
 
 func (HTTPError) OpenApiName() string {
-	return "Error Response"
+	return "error response"
 }
 
 type ErrorItem struct {
