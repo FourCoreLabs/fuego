@@ -214,8 +214,6 @@ func getName(t reflect.Type) string {
 		}
 	}
 
-	name = strings.NewReplacer(" ", "-").Replace(name)
-
 	if len(name) == 0 || name[len(name)-1] != ']' {
 		return name
 	}
@@ -227,7 +225,15 @@ func getName(t reflect.Type) string {
 		generic = generic[sep+1:]
 	}
 
-	return name + "-" + generic
+	name = name + " " + generic
+
+	builder := strings.Builder{}
+	builder.Grow(len(name))
+	for _, field := range strings.Fields(name) {
+		builder.WriteString(strings.Title(field))
+	}
+
+	return builder.String()
 }
 
 // getOrCreateSchema is used to get a schema from the OpenAPI spec.
