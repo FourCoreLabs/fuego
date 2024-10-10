@@ -214,18 +214,17 @@ func getName(t reflect.Type) string {
 		}
 	}
 
-	if len(name) == 0 || name[len(name)-1] != ']' {
-		return name
+	if len(name) == 0 || name[len(name)-1] == ']' {
+		generic := ""
+		name, generic, _ = strings.Cut(name[:len(name)-1], "[")
+
+		sep := strings.LastIndexAny(generic, "/.")
+		if sep != -1 {
+			generic = generic[sep+1:]
+		}
+
+		name = name + " " + generic
 	}
-
-	name, generic, _ := strings.Cut(name[:len(name)-1], "[")
-
-	sep := strings.LastIndexAny(generic, "/.")
-	if sep != -1 {
-		generic = generic[sep+1:]
-	}
-
-	name = name + " " + generic
 
 	builder := strings.Builder{}
 	builder.Grow(len(name))
