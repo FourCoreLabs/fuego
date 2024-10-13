@@ -1,4 +1,4 @@
-module github.com/FourCoreLabs/fuego
+module github.com/fourcorelabs/fuego
 
 go 1.23
 
