@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/FourCoreLabs/fuego/middleware/basicauth"
+	"github.com/fourcorelabs/fuego/middleware/basicauth"
 )
 
 func TestNew(t *testing.T) {

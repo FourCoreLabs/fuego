@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/FourCoreLabs/fuego"
+	"github.com/fourcorelabs/fuego"
 )
 
 type testStruct struct {
