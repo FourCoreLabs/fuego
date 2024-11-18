@@ -135,6 +135,7 @@ func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller f
 // Register registers a controller into the default mux and documents it in the OpenAPI spec.
 func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.Handler, middlewares ...func(http.Handler) http.Handler) Route[T, B] {
 	route.Handler = controller
+	route.mainRouter = group.server
 
 	allMiddlewares := append(group.middlewares, middlewares...)
 
@@ -163,7 +164,7 @@ func Register[T, B any](group *RouterGroup, route Route[T, B], controller http.H
 		route.Operation.OperationID = route.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(route.Path, "{", ":"), "}", "")
 	}
 
-	route.mainRouter = group.server
+	route.addPermissionDesc()
 	return route
 }
 
@@ -260,6 +261,33 @@ func ginToStdPath(path string) string {
 		builder.WriteRune('}')
 
 		path = path[end:]
+	}
+
+	return builder.String()
+}
+
+func stdToGinPath(path string) string {
+	builder := strings.Builder{}
+	builder.Grow(len(path))
+
+	for len(path) > 0 {
+		colIdx := strings.IndexRune(path, '{')
+		if colIdx < 0 {
+			builder.WriteString(path)
+			break
+		}
+
+		builder.WriteString(path[:colIdx])
+		path = path[colIdx+1:]
+		end := strings.IndexRune(path, '}')
+		if end < 0 {
+			end = len(path)
+		}
+
+		builder.WriteRune(':')
+		builder.WriteString(path[:end])
+
+		path = path[end+1:]
 	}
 
 	return builder.String()
