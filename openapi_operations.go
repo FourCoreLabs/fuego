@@ -49,23 +49,21 @@ func WithSchema(schema *openapi3.Schema) func(opt *OpenAPIParamOption) {
 
 // Overrides the description for the route.
 func (r Route[ResponseBody, RequestBody]) Description(description string) Route[ResponseBody, RequestBody] {
-	r.Operation.Description = ""
+	r.Operation.Description = description
 	r = r.addPermissionDesc()
-	r.Operation.Description += description
 	return r
 }
 
 func (r Route[ResponseBody, RequestBody]) addPermissionDesc() Route[ResponseBody, RequestBody] {
 	desc := ""
 	if r.mainRouter.PermissionFunc != nil {
+		desc += "Permissions: "
 		for _, perm := range r.mainRouter.PermissionFunc(stdToGinPath(r.Path), r.Method) {
 			desc += "```" + perm + "``` "
 		}
-
-		desc += "\n\n"
 	}
 
-	r.Operation.Description = desc
+	r.Operation.Description += "\n\n" + desc
 	return r
 }
 
