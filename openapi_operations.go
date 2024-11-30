@@ -19,31 +19,58 @@ type OpenAPIParam struct {
 	Description string
 	Type        ParamType
 
-	opts []func(*OpenAPIParamOption)
+	opts []func(*openapi3.Parameter)
 }
 
-type OpenAPIParamOption struct {
-	Required bool
-	Example  string
-	Schema   *openapi3.Schema
-}
-
-func WithRequiredParam() func(opt *OpenAPIParamOption) {
-	return func(opt *OpenAPIParamOption) {
+func WithRequiredParam() func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
 		opt.Required = true
 	}
 }
 
-func WithExample(example string) func(opt *OpenAPIParamOption) {
-	return func(opt *OpenAPIParamOption) {
+func WithExample(example any) func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
 		opt.Example = example
 	}
 }
 
-func WithSchema(schema *openapi3.Schema) func(opt *OpenAPIParamOption) {
-	return func(opt *OpenAPIParamOption) {
-		s := *schema
-		opt.Schema = &s
+func WithExamples(examples map[string]any) func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
+		if opt.Examples == nil {
+			opt.Examples = make(openapi3.Examples)
+		}
+
+		for k, v := range examples {
+			ref := openapi3.ExampleRef{
+				Value: openapi3.NewExample(v),
+			}
+
+			opt.Examples[k] = &ref
+		}
+	}
+}
+
+func WithSchema(schema *openapi3.Schema) func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
+		s := &schema
+		ref := openapi3.SchemaRef{
+			Value: *s,
+		}
+
+		opt.Schema = &ref
+	}
+}
+
+func WithExplode() func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
+		t := true
+		opt.Explode = &t
+	}
+}
+
+func WithAllowReserved() func(opt *openapi3.Parameter) {
+	return func(opt *openapi3.Parameter) {
+		opt.AllowReserved = true
 	}
 }
 
@@ -82,27 +109,14 @@ func (r Route[ResponseBody, RequestBody]) OperationID(operationID string) Route[
 // Param registers a parameter for the route.
 // The paramType can be "query", "header" or "cookie" as defined in [ParamType].
 // [Cookie], [Header], [QueryParam] are shortcuts for Param.
-func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
-	openapiParam := openapi3.NewHeaderParameter(name)
+func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
+	openapiParam := openapi3.NewQueryParameter(name)
 	openapiParam.Description = description
 	openapiParam.Schema = openapi3.NewStringSchema().NewRef()
 	openapiParam.In = string(paramType)
 
-	paramOpt := &OpenAPIParamOption{}
 	for _, opt := range opts {
-		opt(paramOpt)
-	}
-
-	if paramOpt.Schema != nil {
-		openapiParam.Schema = paramOpt.Schema.NewRef()
-	}
-
-	if paramOpt.Required {
-		openapiParam.Required = paramOpt.Required
-	}
-
-	if paramOpt.Example != "" {
-		openapiParam.Example = paramOpt.Example
+		opt(openapiParam)
 	}
 
 	r.Operation.AddParameter(openapiParam)
@@ -111,19 +125,19 @@ func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, descr
 }
 
 // Header registers a header parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Header(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+func (r Route[ResponseBody, RequestBody]) Header(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
 	r.Param(HeaderParamType, name, description, opts...)
 	return r
 }
 
 // Cookie registers a cookie parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Cookie(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+func (r Route[ResponseBody, RequestBody]) Cookie(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
 	r.Param(CookieParamType, name, description, opts...)
 	return r
 }
 
 // QueryParam registers a query parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Query(name, description string, opts ...func(*OpenAPIParamOption)) Route[ResponseBody, RequestBody] {
+func (r Route[ResponseBody, RequestBody]) Query(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
 	r.Param(QueryParamType, name, description, opts...)
 	return r
 }

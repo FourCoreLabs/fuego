@@ -401,7 +401,7 @@ func (s *RouterGroup) RemoveTags(tags ...string) *RouterGroup {
 }
 
 // Registers a param for all server routes.
-func (s *RouterGroup) Param(paramType ParamType, name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+func (s *RouterGroup) Param(paramType ParamType, name, description string, opts ...func(*openapi3.Parameter)) *RouterGroup {
 	param := OpenAPIParam{
 		Type:        paramType,
 		Name:        name,
@@ -414,19 +414,19 @@ func (s *RouterGroup) Param(paramType ParamType, name, description string, opts 
 }
 
 // Registers a header param for all server routes.
-func (s *RouterGroup) Header(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+func (s *RouterGroup) Header(name, description string, opts ...func(*openapi3.Parameter)) *RouterGroup {
 	s.Param(HeaderParamType, name, description, opts...)
 	return s
 }
 
 // Registers a cookie param for all server routes.
-func (s *RouterGroup) Cookie(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+func (s *RouterGroup) Cookie(name, description string, opts ...func(*openapi3.Parameter)) *RouterGroup {
 	s.Param(CookieParamType, name, description, opts...)
 	return s
 }
 
 // Registers a query param for all server routes.
-func (s *RouterGroup) Query(name, description string, opts ...func(*OpenAPIParamOption)) *RouterGroup {
+func (s *RouterGroup) Query(name, description string, opts ...func(*openapi3.Parameter)) *RouterGroup {
 	s.Param(QueryParamType, name, description, opts...)
 	return s
 }
