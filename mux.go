@@ -124,49 +124,49 @@ func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller f
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
-func AllGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func AllGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		All:  true,
 		Path: path,
 	}, controller, middlewares...)
 }
 
-func GetGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func GetGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		Method: http.MethodGet,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func PostGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func PostGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		Method: http.MethodPost,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func PutGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func PutGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		Method: http.MethodPut,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func DeleteGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func DeleteGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		Method: http.MethodPatch,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func PatchGin[T, B any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func PatchGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+	return Register(s, Route[Return, Body]{
 		Method: http.MethodPatch,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func Register[T, B any](group *RouterGroup, route Route[T, B], controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[T, B] {
+func Register[Body, Return any](group *RouterGroup, route Route[Return, Body], controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
 	route.mainRouter = group.server
 	handlers := append([]gin.HandlerFunc{controller}, middlewares...)
 
