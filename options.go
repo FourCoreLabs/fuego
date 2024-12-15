@@ -9,12 +9,10 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type OpenAPIConfig struct {
@@ -42,7 +40,6 @@ type RouterGroup struct {
 	params []OpenAPIParam
 
 	DisableOpenapi bool // If true, the routes within the group will not generate an OpenAPI spec.
-	middlewares    []func(http.Handler) http.Handler
 }
 
 type Server struct {
@@ -51,7 +48,7 @@ type Server struct {
 	// Will be plugged into the Server field.
 	// Not using directly the Server field so
 	// [http.ServeMux.Handle] can also be used to register routes.
-	engine *gin.Engine
+	Engine *gin.Engine
 	rg     RouterGroup
 
 	// Not stored with the other middlewares because it is a special case :
@@ -68,7 +65,6 @@ type Server struct {
 
 	Security Security
 
-	autoAuth AutoAuthConfig
 	fs       fs.FS
 	template *template.Template // TODO: use preparsed templates
 
@@ -78,7 +74,6 @@ type Server struct {
 	Serialize      Sender                // Custom serializer that overrides the default one.
 	SerializeError ErrorSender           // Used to serialize the error response. Defaults to [SendError].
 	ErrorHandler   func(err error) error // Used to transform any error into a unified error type structure with status code. Defaults to [ErrorHandler]
-	startTime      time.Time
 	PermissionFunc func(path, method string) []string
 }
 
@@ -93,23 +88,29 @@ type Server struct {
 // Option all begin with `With`.
 // Some default options are set in the function body.
 func NewServer(options ...func(*Server)) *Server {
-	s := NewServerWithRouterGroup(nil)
-	s.engine = gin.New()
+	engine := gin.New()
+
+	s := NewServerWithRouterGroup(&engine.RouterGroup, options...)
+	s.Engine = engine
 	s.rg = RouterGroup{
 		server: s,
-		rg:     &s.engine.RouterGroup,
+		rg:     &s.Engine.RouterGroup,
 	}
 
 	return s
 }
 
 func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Server {
+	if rg == nil {
+		panic("router group in fuego server cannot be nil")
+	}
+
 	s := &Server{
 		OpenApiSpec: NewOpenApiSpec(),
 		Security:    NewSecurity(),
 	}
 
-	s.engine = &gin.Engine{
+	s.Engine = &gin.Engine{
 		RouterGroup: *rg,
 	}
 
@@ -129,19 +130,6 @@ func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Se
 
 	for _, option := range append(defaultOptions[:], options...) {
 		option(s)
-	}
-
-	s.startTime = time.Now()
-
-	if s.autoAuth.Enabled {
-		Post(s.RouterGroup(), "/auth/login", s.Security.LoginHandler(s.autoAuth.VerifyUserInfo)).Tags("Auth").Summary("Login")
-		PostStd(s.RouterGroup(), "/auth/logout", s.Security.CookieLogoutHandler).Tags("Auth").Summary("Logout")
-
-		s.RouterGroup().middlewares = []func(http.Handler) http.Handler{
-			s.Security.TokenToContext(TokenFromCookie, TokenFromHeader),
-		}
-
-		PostStd(s.RouterGroup(), "/auth/refresh", s.Security.RefreshHandler).Tags("Auth").Summary("Refresh token")
 	}
 
 	return s
@@ -166,12 +154,11 @@ func (group *RouterGroup) newRouteGroup(path string, groupOption GroupOption) *R
 	}
 
 	return &RouterGroup{
-		rg:          group.rg.Group(path),
-		server:      group.server,
-		groupTag:    groupTag,
-		middlewares: slices.Clone(group.middlewares),
-		params:      slices.Clone(group.params),
-		tags:        slices.Clone(group.tags),
+		rg:       group.rg.Group(path),
+		server:   group.server,
+		groupTag: groupTag,
+		params:   slices.Clone(group.params),
+		tags:     slices.Clone(group.tags),
 	}
 }
 
@@ -279,13 +266,6 @@ func WithTemplateGlobs(patterns ...string) func(*Server) {
 
 func WithMaxBodySize(maxBodySize int64) func(*Server) {
 	return func(c *Server) { c.maxBodySize = maxBodySize }
-}
-
-func WithAutoAuth(verifyUserInfo func(user, password string) (jwt.Claims, error)) func(*Server) {
-	return func(c *Server) {
-		c.autoAuth.Enabled = true
-		c.autoAuth.VerifyUserInfo = verifyUserInfo
-	}
 }
 
 // WithDisallowUnknownFields sets the DisallowUnknownFields option.

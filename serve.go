@@ -1,7 +1,6 @@
 package fuego
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -21,11 +20,11 @@ const GinContextKey contextKeyType = gin.ContextKey
 // It also generates the OpenAPI spec and outputs it to a file, the UI, and a handler (if enabled).
 func (s *Server) Run(addr string) error {
 	// s.setup()
-	return s.engine.Run(addr)
+	return s.Engine.Run(addr)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.engine.ServeHTTP(w, r)
+	s.Engine.ServeHTTP(w, r)
 }
 
 // initializes any Context type with the base ContextNoBody context.
@@ -48,16 +47,8 @@ func initContext[Contextable ctx[Body], Body any](baseContext ContextNoBody) Con
 	}
 }
 
-func wrapGinContext(handler http.Handler) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		ctx.Request.Pattern = ctx.FullPath()
-		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), GinContextKey, ctx))
-		handler.ServeHTTP(ctx.Writer, ctx.Request)
-	}
-}
-
-// HTTPHandler converts a Fuego controller into a http.HandlerFunc.
-func HTTPHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, controller func(c Contextable) (ReturnType, error)) http.HandlerFunc {
+// FuegoHandler converts a Fuego controller into a http.HandlerFunc.
+func FuegoHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, controller func(c Contextable) (ReturnType, error)) gin.HandlerFunc {
 	// Just a check, not used at request time
 	baseContext := *new(Contextable)
 	if reflect.TypeOf(baseContext) == nil {
@@ -65,32 +56,30 @@ func HTTPHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, control
 		panic("ctx must be provided as concrete type (not interface). ContextNoBody, ContextWithBody[any], ContextFull[any, any], ContextWithQueryParams[any] are supported")
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(c *gin.Context) {
 		// CONTEXT INITIALIZATION
 		var templates *template.Template
 		if s.template != nil {
 			templates = template.Must(s.template.Clone())
 		}
 
-		ginCtx, _ := r.Context().Value(GinContextKey).(*gin.Context)
-
 		ctx := initContext[Contextable](ContextNoBody{
-			Req: r,
-			Res: w,
+			Req: c.Request,
+			Res: c.Writer,
 			readOptions: readOptions{
 				DisallowUnknownFields: s.DisallowUnknownFields,
 				MaxBodySize:           s.maxBodySize,
 			},
 			fs:        s.fs,
 			templates: templates,
-			ginCtx:    ginCtx,
+			ginCtx:    c,
 		})
 
 		// CONTROLLER
 		ans, err := controller(ctx)
 		if err != nil {
 			err = s.ErrorHandler(err)
-			s.SerializeError(w, r, err)
+			s.SerializeError(c.Writer, c.Request, err)
 			return
 		}
 
@@ -99,18 +88,18 @@ func HTTPHandler[ReturnType, Body any, Contextable ctx[Body]](s *Server, control
 		}
 
 		// TRANSFORM OUT
-		ans, err = transformOut(r.Context(), ans)
+		ans, err = transformOut(c.Request.Context(), ans)
 		if err != nil {
 			err = s.ErrorHandler(err)
-			s.SerializeError(w, r, err)
+			s.SerializeError(c.Writer, c.Request, err)
 			return
 		}
 
 		// SERIALIZATION
-		err = s.Serialize(w, r, ans)
+		err = s.Serialize(c.Writer, c.Request, ans)
 		if err != nil {
 			err = s.ErrorHandler(err)
-			s.SerializeError(w, r, err)
+			s.SerializeError(c.Writer, c.Request, err)
 		}
 	}
 }
