@@ -214,6 +214,10 @@ func getName(t reflect.Type) string {
 		}
 	}
 
+	if name == "" {
+		return t.Name()
+	}
+
 	if len(name) == 0 || name[len(name)-1] == ']' {
 		generic := ""
 		name, generic, _ = strings.Cut(name[:len(name)-1], "[")

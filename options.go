@@ -162,6 +162,10 @@ func (group *RouterGroup) newRouteGroup(path string, groupOption GroupOption) *R
 	}
 }
 
+func (group *RouterGroup) BasePath() string {
+	return group.rg.BasePath()
+}
+
 // WithTemplateFS sets the filesystem used to load templates.
 // To be used with [WithTemplateGlobs] or [WithTemplates].
 // For example:
