@@ -1,7 +1,9 @@
 package fuego
 
 import (
+	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -75,33 +77,19 @@ func WithAllowReserved() func(opt *openapi3.Parameter) {
 }
 
 // Overrides the description for the route.
-func (r Route[ResponseBody, RequestBody]) Description(description string) Route[ResponseBody, RequestBody] {
+func (r Route) Description(description string) Route {
 	r.Operation.Description = description
-	r = r.addPermissionDesc()
-	return r
-}
-
-func (r Route[ResponseBody, RequestBody]) addPermissionDesc() Route[ResponseBody, RequestBody] {
-	desc := ""
-	if r.mainRouter.PermissionFunc != nil {
-		desc += "Permissions: "
-		for _, perm := range r.mainRouter.PermissionFunc(stdToGinPath(r.Path), r.Method) {
-			desc += "```" + perm + "``` "
-		}
-	}
-
-	r.Operation.Description += "\n\n" + desc
 	return r
 }
 
 // Overrides the summary for the route.
-func (r Route[ResponseBody, RequestBody]) Summary(summary string) Route[ResponseBody, RequestBody] {
+func (r Route) Summary(summary string) Route {
 	r.Operation.Summary = summary
 	return r
 }
 
 // Overrides the operationID for the route.
-func (r Route[ResponseBody, RequestBody]) OperationID(operationID string) Route[ResponseBody, RequestBody] {
+func (r Route) OperationID(operationID string) Route {
 	r.Operation.OperationID = operationID
 	return r
 }
@@ -109,7 +97,7 @@ func (r Route[ResponseBody, RequestBody]) OperationID(operationID string) Route[
 // Param registers a parameter for the route.
 // The paramType can be "query", "header" or "cookie" as defined in [ParamType].
 // [Cookie], [Header], [QueryParam] are shortcuts for Param.
-func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
+func (r Route) Param(paramType ParamType, name, description string, opts ...func(*openapi3.Parameter)) Route {
 	openapiParam := openapi3.NewQueryParameter(name)
 	openapiParam.Description = description
 	openapiParam.Schema = openapi3.NewStringSchema().NewRef()
@@ -125,37 +113,37 @@ func (r Route[ResponseBody, RequestBody]) Param(paramType ParamType, name, descr
 }
 
 // Header registers a header parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Header(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
+func (r Route) Header(name, description string, opts ...func(*openapi3.Parameter)) Route {
 	r.Param(HeaderParamType, name, description, opts...)
 	return r
 }
 
 // Cookie registers a cookie parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Cookie(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
+func (r Route) Cookie(name, description string, opts ...func(*openapi3.Parameter)) Route {
 	r.Param(CookieParamType, name, description, opts...)
 	return r
 }
 
 // QueryParam registers a query parameter for the route.
-func (r Route[ResponseBody, RequestBody]) Query(name, description string, opts ...func(*openapi3.Parameter)) Route[ResponseBody, RequestBody] {
+func (r Route) Query(name, description string, opts ...func(*openapi3.Parameter)) Route {
 	r.Param(QueryParamType, name, description, opts...)
 	return r
 }
 
 // Replace the tags for the route.
 // By default, the tag is the type of the response body.
-func (r Route[ResponseBody, RequestBody]) Tags(tags ...string) Route[ResponseBody, RequestBody] {
+func (r Route) Tags(tags ...string) Route {
 	r.Operation.Tags = tags
 	return r
 }
 
 // Replace the available request Content-Types for the route.
 // By default, the request Content-Types is `application/json`.
-func (r Route[ResponseBody, RequestBody]) RequestContentType(consumes ...string) Route[ResponseBody, RequestBody] {
-	bodyTag := schemaTagFromType(r.mainRouter, *new(RequestBody))
+func (r Route) RequestContentType(consumes ...string) Route {
+	bodyTag := schemaTagFromType(r.mainRouter, r.Request)
 
 	if bodyTag.name != "unknown-interface" {
-		requestBody := newRequestBody[RequestBody](bodyTag, consumes)
+		requestBody := newRequestBody(bodyTag, consumes)
 
 		// set just Value as we do not want to reference
 		// a global requestBody
@@ -167,19 +155,19 @@ func (r Route[ResponseBody, RequestBody]) RequestContentType(consumes ...string)
 }
 
 // AddTags adds tags to the route.
-func (r Route[ResponseBody, RequestBody]) AddTags(tags ...string) Route[ResponseBody, RequestBody] {
+func (r Route) AddTags(tags ...string) Route {
 	r.Operation.Tags = append(r.Operation.Tags, tags...)
 	return r
 }
 
 // AddError adds an error to the route.
-func (r Route[ResponseBody, RequestBody]) AddError(code int, description string, errorType ...any) Route[ResponseBody, RequestBody] {
+func (r Route) AddError(code int, description string, errorType ...any) Route {
 	addResponse(r.mainRouter, r.Operation, code, description, errorType...)
 	return r
 }
 
 // add request description
-func (r Route[ResponseBody, RequestBody]) RequestDescription(desc string) Route[ResponseBody, RequestBody] {
+func (r Route) RequestDescription(desc string) Route {
 	r.Operation.RequestBody.Value.Description = desc
 	return r
 }
@@ -209,7 +197,7 @@ type openAPIError struct {
 }
 
 // RemoveTags removes tags from the route.
-func (r Route[ResponseBody, RequestBody]) RemoveTags(tags ...string) Route[ResponseBody, RequestBody] {
+func (r Route) RemoveTags(tags ...string) Route {
 	for _, tag := range tags {
 		for i, t := range r.Operation.Tags {
 			if t == tag {
@@ -221,7 +209,33 @@ func (r Route[ResponseBody, RequestBody]) RemoveTags(tags ...string) Route[Respo
 	return r
 }
 
-func (r Route[ResponseBody, RequestBody]) Deprecated() Route[ResponseBody, RequestBody] {
+func (r Route) Deprecated() Route {
 	r.Operation.Deprecated = true
 	return r
+}
+
+func (r Route) WithRequest(req any) Route {
+	r.Request = req
+	return r
+}
+
+func (r Route) WithResponse(res any) Route {
+	r.Response = res
+	return r
+}
+
+func (r Route) Build() {
+	if r.Group.DisableOpenapi || r.Method == "" || r.All {
+		return
+	}
+
+	var err error
+	r.Operation, err = RegisterOpenAPIOperation(r.Group, r)
+	if err != nil {
+		slog.Warn("error documenting openapi operation", "error", err)
+	}
+
+	if r.Operation.OperationID == "" {
+		r.Operation.OperationID = r.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(r.Path, "{", ":"), "}", "")
+	}
 }

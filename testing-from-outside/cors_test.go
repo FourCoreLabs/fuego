@@ -19,7 +19,7 @@ func TestCors(t *testing.T) {
 		}).Handler),
 	)
 
-	fuego.Get(s, "/", func(c fuego.ContextNoBody) (string, error) {
+	fuego.Get(s.RouterGroup(), "/", func(c fuego.ContextNoBody) (string, error) {
 		return "Hello, World!", nil
 	})
 

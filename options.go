@@ -74,7 +74,6 @@ type Server struct {
 	Serialize      Sender                // Custom serializer that overrides the default one.
 	SerializeError ErrorSender           // Used to serialize the error response. Defaults to [SendError].
 	ErrorHandler   func(err error) error // Used to transform any error into a unified error type structure with status code. Defaults to [ErrorHandler]
-	PermissionFunc func(path, method string) []string
 }
 
 // NewServer creates a new server with the given options.
@@ -346,12 +345,6 @@ func WithValidator(newValidator *validator.Validate) func(*Server) {
 
 	return func(s *Server) {
 		v = newValidator
-	}
-}
-
-func WithPermissions(permFn func(path, method string) []string) func(*Server) {
-	return func(s *Server) {
-		s.PermissionFunc = permFn
 	}
 }
 

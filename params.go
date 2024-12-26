@@ -16,3 +16,20 @@ func parseStdPathParams(path string) []string {
 	}
 	return matches
 }
+
+func parseGinPathParams(path string) []string {
+	params := []string{}
+
+	for {
+		idx := strings.IndexAny(path, "*:")
+		if idx == -1 {
+			break
+		}
+
+		var name string
+		name, path, _ = strings.Cut(path[idx:], "/")
+		params = append(params, name)
+	}
+
+	return params
+}

@@ -1,7 +1,6 @@
 package fuego
 
 import (
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -73,101 +72,118 @@ func Group(group *RouterGroup, path string, opts ...func(*GroupOption)) *RouterG
 	return group.Group(path, opts...)
 }
 
-type Route[ResponseBody any, RequestBody any] struct {
+type Route struct {
 	Operation  *openapi3.Operation // GENERATED OpenAPI operation, do not set manually in Register function. You can change it after the route is registered.
 	All        bool                // define route to all HTTP methods. If true, ignore Method
 	Method     string              // HTTP method (GET, POST, PUT, PATCH, DELETE)
 	Path       string              // URL path. Will be prefixed by the base path of the server and the group path if any
 	mainRouter *Server             // ref to the main router, used to register the route in the OpenAPI spec
+	Group      *RouterGroup
+	Response   any
+	Request    any
 }
 
 // Capture all methods (GET, POST, PUT, PATCH, DELETE) and register a controller.
-func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
-		Path: path,
-		All:  true,
+func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Path:     path,
+		All:      true,
+		Request:  new(B),
+		Response: new(T),
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
-func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
+func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Method:   http.MethodGet,
+		Path:     path,
+		Request:  new(B),
+		Response: new(T),
+	}, FuegoHandler(s.server, controller), middlewares...)
+}
+
+func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Method:   http.MethodPost,
+		Path:     path,
+		Request:  new(B),
+		Response: new(T),
+	}, FuegoHandler(s.server, controller), middlewares...)
+}
+
+func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Method:   http.MethodDelete,
+		Path:     path,
+		Request:  new(B),
+		Response: new(T),
+	}, FuegoHandler(s.server, controller), middlewares...)
+}
+
+func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Method:   http.MethodPut,
+		Path:     path,
+		Request:  new(B),
+		Response: new(T),
+	}, FuegoHandler(s.server, controller), middlewares...)
+}
+
+func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		Method:   http.MethodPatch,
+		Path:     path,
+		Request:  new(B),
+		Response: new(T),
+	}, FuegoHandler(s.server, controller), middlewares...)
+}
+
+func AllGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
+		All:  true,
+		Path: path,
+	}, controller, middlewares...)
+}
+
+func GetGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
 		Method: http.MethodGet,
 		Path:   path,
-	}, FuegoHandler(s.server, controller), middlewares...)
-}
-
-func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
-		Method: http.MethodPost,
-		Path:   path,
-	}, FuegoHandler(s.server, controller), middlewares...)
-}
-
-func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
-		Method: http.MethodDelete,
-		Path:   path,
-	}, FuegoHandler(s.server, controller), middlewares...)
-}
-
-func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
-		Method: http.MethodPut,
-		Path:   path,
-	}, FuegoHandler(s.server, controller), middlewares...)
-}
-
-func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route[T, B] {
-	return Register(s, Route[T, B]{
-		Method: http.MethodPatch,
-		Path:   path,
-	}, FuegoHandler(s.server, controller), middlewares...)
-}
-
-func AllGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
-		All:  true,
-		Path: path,
 	}, controller, middlewares...)
 }
 
-func GetGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
-		Method: http.MethodGet,
-		Path:   path,
-	}, controller, middlewares...)
-}
-
-func PostGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
+func PostGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
 		Method: http.MethodPost,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func PutGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
+func PutGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
 		Method: http.MethodPut,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func DeleteGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
+func DeleteGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
 		Method: http.MethodPatch,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func PatchGin[Body, Return any](s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
-	return Register(s, Route[Return, Body]{
+func PatchGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
+	return Register(s, Route{
 		Method: http.MethodPatch,
 		Path:   path,
 	}, controller, middlewares...)
 }
 
-func Register[Body, Return any](group *RouterGroup, route Route[Return, Body], controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route[Return, Body] {
+func Register(group *RouterGroup, route Route, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
 	route.mainRouter = group.server
+	route.Group = group
+
 	handlers := append([]gin.HandlerFunc{controller}, middlewares...)
 
 	if route.All || route.Method == "" {
@@ -176,23 +192,7 @@ func Register[Body, Return any](group *RouterGroup, route Route[Return, Body], c
 		group.rg.Handle(route.Method, route.Path, handlers...)
 	}
 
-	if group.DisableOpenapi || route.Method == "" || route.All {
-		return route
-	}
-
-	route.Path = ginToStdPath(group.rg.BasePath() + route.Path)
-
-	var err error
-	route.Operation, err = RegisterOpenAPIOperation(group, route)
-	if err != nil {
-		slog.Warn("error documenting openapi operation", "error", err)
-	}
-
-	if route.Operation.OperationID == "" {
-		route.Operation.OperationID = route.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(route.Path, "{", ":"), "}", "")
-	}
-
-	route.addPermissionDesc()
+	// route.Path = ginToStdPath(group.rg.BasePath() + route.Path)
 	return route
 }
 
@@ -230,9 +230,4 @@ func ginToStdPath(path string) string {
 	}
 
 	return builder.String()
-}
-
-func stdToGinPath(path string) string {
-	replacer := strings.NewReplacer("{", ":", "}", "")
-	return replacer.Replace(path)
 }

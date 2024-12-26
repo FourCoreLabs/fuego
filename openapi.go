@@ -72,7 +72,7 @@ var generator = openapi3gen.NewGenerator(
 )
 
 // RegisterOpenAPIOperation registers an OpenAPI operation.
-func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (*openapi3.Operation, error) {
+func RegisterOpenAPIOperation(group *RouterGroup, route Route) (*openapi3.Operation, error) {
 	if route.Operation == nil {
 		route.Operation = openapi3.NewOperation()
 	}
@@ -91,11 +91,11 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	}
 
 	// Request Body
-	if route.Operation.RequestBody == nil && any(*new(B)) != nil {
-		bodyTag := schemaTagFromType(group.server, *new(B))
+	if route.Operation.RequestBody == nil && route.Request != nil {
+		bodyTag := schemaTagFromType(group.server, route.Request)
 
 		if bodyTag.name != "unknown-interface" {
-			requestBody := newRequestBody[B](bodyTag, []string{"application/json"})
+			requestBody := newRequestBody(bodyTag, []string{"application/json"})
 			group.server.OpenApiSpec.Components.RequestBodies[bodyTag.name] = &openapi3.RequestBodyRef{
 				Value: requestBody,
 			}
@@ -114,15 +114,21 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	}
 
 	// Response - 200
-	responseSchema := schemaTagFromType(group.server, *new(T))
+	responseSchema := schemaTagFromType(group.server, route.Response)
 	content := openapi3.NewContentWithSchemaRef(&responseSchema.SchemaRef, []string{"application/json"})
 	response := openapi3.NewResponse().WithDescription("OK").WithContent(content)
 	route.Operation.AddResponse(200, response)
 
-	for _, pathParam := range parseStdPathParams(route.Path) {
+	for _, pathParam := range parseGinPathParams(route.Path) {
+		pathParam := strings.TrimPrefix(pathParam, ":")
+		if pathParam == "" {
+			continue
+		}
+
 		parameter := openapi3.NewPathParameter(pathParam)
+
 		parameter.Schema = openapi3.NewStringSchema().NewRef()
-		if strings.HasSuffix(pathParam, "...") {
+		if pathParam[0] == '*' {
 			parameter.Description += " (might contain slashes)"
 		}
 
@@ -134,7 +140,7 @@ func RegisterOpenAPIOperation[T, B any](group *RouterGroup, route Route[T, B]) (
 	return route.Operation, nil
 }
 
-func newRequestBody[RequestBody any](tag schemaTag, consumes []string) *openapi3.RequestBody {
+func newRequestBody(tag schemaTag, consumes []string) *openapi3.RequestBody {
 	content := openapi3.NewContentWithSchemaRef(&tag.SchemaRef, consumes)
 	return openapi3.NewRequestBody().
 		WithRequired(true).
