@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.3
 
 require (
-	github.com/fourcorelabs/fuego v0.1.26
+	github.com/fourcorelabs/fuego v0.1.27-0.20241226110213-53c003e6e969
 	github.com/rs/cors v1.11.0
 	github.com/stretchr/testify v1.9.0
 )

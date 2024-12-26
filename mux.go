@@ -2,7 +2,6 @@ package fuego
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -183,6 +182,7 @@ func PatchGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewar
 func Register(group *RouterGroup, route Route, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
 	route.mainRouter = group.server
 	route.Group = group
+	route.Operation = openapi3.NewOperation()
 
 	handlers := append([]gin.HandlerFunc{controller}, middlewares...)
 
@@ -202,32 +202,4 @@ func Use(s *RouterGroup, middlewares ...gin.HandlerFunc) {
 
 func (group *RouterGroup) Use(middlewares ...gin.HandlerFunc) {
 	group.rg.Use(middlewares...)
-}
-
-func ginToStdPath(path string) string {
-	builder := strings.Builder{}
-	builder.Grow(len(path))
-
-	for len(path) > 0 {
-		colIdx := strings.IndexRune(path, ':')
-		if colIdx < 0 {
-			builder.WriteString(path)
-			break
-		}
-
-		builder.WriteString(path[:colIdx])
-		path = path[colIdx+1:]
-		end := strings.IndexRune(path, '/')
-		if end < 0 {
-			end = len(path)
-		}
-
-		builder.WriteRune('{')
-		builder.WriteString(path[:end])
-		builder.WriteRune('}')
-
-		path = path[end:]
-	}
-
-	return builder.String()
 }

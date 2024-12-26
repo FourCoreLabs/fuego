@@ -11,6 +11,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fourcorelabs/fuego v0.1.26 h1:1fRxMqqV/RwL4FUcJooFDOmOgggrBt2q3LOa72b69/4=
 github.com/fourcorelabs/fuego v0.1.26/go.mod h1:ThARpKmhynL38E487nxqV2cJgNjWJnpsRmBUH5ueAnw=
+github.com/fourcorelabs/fuego v0.1.27-0.20241226110213-53c003e6e969 h1:CC/gg7oH3SZEII7UhoH7VaKj8FhdanGrF9xTof7PWJw=
+github.com/fourcorelabs/fuego v0.1.27-0.20241226110213-53c003e6e969/go.mod h1:ThARpKmhynL38E487nxqV2cJgNjWJnpsRmBUH5ueAnw=
 github.com/gabriel-vasile/mimetype v1.4.4 h1:QjV6pZ7/XZ7ryI2KuyeEDE8wnh7fHP9YnQy+R0LnH8I=
 github.com/gabriel-vasile/mimetype v1.4.4/go.mod h1:JwLei5XPtWdGiMFB5Pjle1oEeoSeEuJfJE+TtfvdB/s=
 github.com/getkin/kin-openapi v0.127.0 h1:Mghqi3Dhryf3F8vR370nN67pAERW+3a95vomb3MAREY=

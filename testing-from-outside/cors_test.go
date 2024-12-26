@@ -1,4 +1,4 @@
-package testingfromoutside_test
+package main_test
 
 import (
 	"net/http/httptest"
@@ -30,7 +30,7 @@ func TestCors(t *testing.T) {
 		r.Header.Set("Origin", "http://example.com/")
 		r.Header.Set("Access-Control-Request-Method", "GET")
 
-		s.Mux.ServeHTTP(w, r)
+		s.ServeHTTP(w, r)
 
 		t.Log(w.Header())
 		body := w.Body.String()
