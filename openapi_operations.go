@@ -3,7 +3,6 @@ package fuego
 import (
 	"log/slog"
 	"slices"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -137,23 +136,6 @@ func (r Route) Tags(tags ...string) Route {
 	return r
 }
 
-// Replace the available request Content-Types for the route.
-// By default, the request Content-Types is `application/json`.
-func (r Route) RequestContentType(consumes ...string) Route {
-	bodyTag := schemaTagFromType(r.mainRouter, r.Request)
-
-	if bodyTag.name != "unknown-interface" {
-		requestBody := newRequestBody(bodyTag, consumes)
-
-		// set just Value as we do not want to reference
-		// a global requestBody
-		r.Operation.RequestBody = &openapi3.RequestBodyRef{
-			Value: requestBody,
-		}
-	}
-	return r
-}
-
 // AddTags adds tags to the route.
 func (r Route) AddTags(tags ...string) Route {
 	r.Operation.Tags = append(r.Operation.Tags, tags...)
@@ -161,39 +143,23 @@ func (r Route) AddTags(tags ...string) Route {
 }
 
 // AddError adds an error to the route.
-func (r Route) AddError(code int, description string, errorType ...any) Route {
-	addResponse(r.mainRouter, r.Operation, code, description, errorType...)
-	return r
-}
-
-// add request description
-func (r Route) RequestDescription(desc string) Route {
-	r.Operation.RequestBody.Value.Description = desc
-	return r
-}
-
-func addResponse(s *Server, operation *openapi3.Operation, code int, description string, errorType ...any) {
-	var responseSchema schemaTag
-
-	if len(errorType) > 0 {
-		responseSchema = schemaTagFromType(s, errorType[0])
-	} else {
-		responseSchema = schemaTagFromType(s, HTTPError{})
+func (r Route) AddError(code int, errType any, description string, contentType ...string) Route {
+	if len(contentType) == 0 {
+		contentType = append(contentType, "application/json")
 	}
-	content := openapi3.NewContentWithSchemaRef(&responseSchema.SchemaRef, []string{"application/json"})
 
-	response := openapi3.NewResponse().
-		WithDescription(description).
-		WithContent(content)
+	schema := Schema{
+		Type:        errType,
+		Description: description,
+		ContentType: contentType,
+	}
 
-	operation.AddResponse(code, response)
-}
+	r.Errors = append(r.Errors, openAPIError{
+		Code:   code,
+		Schema: schema,
+	})
 
-// openAPIError describes a response error in the OpenAPI spec.
-type openAPIError struct {
-	Code        int
-	Description string
-	ErrorType   any
+	return r
 }
 
 // RemoveTags removes tags from the route.
@@ -214,13 +180,31 @@ func (r Route) Deprecated() Route {
 	return r
 }
 
-func (r Route) WithRequest(req any) Route {
-	r.Request = req
+func (r Route) WithRequest(reqType any, description string, contentType ...string) Route {
+	if len(contentType) == 0 {
+		contentType = append(contentType, "application/json")
+	}
+
+	r.Request = &Schema{
+		Type:        reqType,
+		Description: description,
+		ContentType: contentType,
+	}
+
 	return r
 }
 
-func (r Route) WithResponse(res any) Route {
-	r.Response = res
+func (r Route) WithResponse(resType any, description string, contentType ...string) Route {
+	if len(contentType) == 0 {
+		contentType = append(contentType, "application/json")
+	}
+
+	r.Response = &Schema{
+		Type:        resType,
+		Description: description,
+		ContentType: contentType,
+	}
+
 	return r
 }
 
@@ -236,6 +220,6 @@ func (r Route) Build() {
 	}
 
 	if r.Operation.OperationID == "" {
-		r.Operation.OperationID = r.Method + "_" + strings.ReplaceAll(strings.ReplaceAll(r.Path, "{", ":"), "}", "")
+		r.Operation.OperationID = r.Method + "_" + r.Path
 	}
 }

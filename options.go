@@ -123,8 +123,8 @@ func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Se
 		WithSerializer(SendJSON),
 		WithErrorSerializer(SendJSONError),
 		WithErrorHandler(ErrorHandler),
-		WithGlobalResponseTypes(http.StatusBadRequest, "Bad Request _(validation or deserialization error)_", HTTPError{}),
-		WithGlobalResponseTypes(http.StatusInternalServerError, "Internal Server Error", HTTPError{}),
+		WithGlobalResponseTypes(http.StatusBadRequest, HTTPError{}, "Bad Request _(validation or deserialization error)_", "application/json"),
+		WithGlobalResponseTypes(http.StatusInternalServerError, HTTPError{}, "Internal Server Error", "application/json"),
 	}
 
 	for _, option := range append(defaultOptions[:], options...) {
@@ -208,10 +208,19 @@ func WithCorsMiddleware(corsMiddleware func(http.Handler) http.Handler) func(*Se
 //		fuego.WithGlobalResponseTypes(401, "Unauthorized _(authentication error)_", HTTPError{}),
 //		fuego.WithGlobalResponseTypes(500, "Internal Server Error _(panics)_", HTTPError{}),
 //	)
-func WithGlobalResponseTypes(code int, description string, errorType ...any) func(*Server) {
-	errorType = append(errorType, HTTPError{})
+func WithGlobalResponseTypes(code int, errType any, description string, contentType ...string) func(*Server) {
+	schema := Schema{
+		Type:        errType,
+		Description: description,
+		ContentType: contentType,
+	}
+
+	if len(schema.ContentType) == 0 {
+		schema.ContentType = append(schema.ContentType, "application/json")
+	}
+
 	return func(c *Server) {
-		c.globalOpenAPIResponses = append(c.globalOpenAPIResponses, openAPIError{code, description, errorType[0]})
+		c.globalOpenAPIResponses = append(c.globalOpenAPIResponses, openAPIError{Code: code, Schema: schema})
 	}
 }
 

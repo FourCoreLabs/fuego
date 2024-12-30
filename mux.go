@@ -78,8 +78,22 @@ type Route struct {
 	Path       string              // URL path. Will be prefixed by the base path of the server and the group path if any
 	mainRouter *Server             // ref to the main router, used to register the route in the OpenAPI spec
 	Group      *RouterGroup
-	Response   any
-	Request    any
+
+	Response *Schema
+	Request  *Schema
+	Errors   []openAPIError
+}
+
+type Schema struct {
+	Type        any
+	Description string
+	ContentType []string
+}
+
+// openAPIError describes a response error in the OpenAPI spec.
+type openAPIError struct {
+	Code int
+	Schema
 }
 
 // Capture all methods (GET, POST, PUT, PATCH, DELETE) and register a controller.
@@ -87,8 +101,8 @@ func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller fun
 	return Register(s, Route{
 		Path:     path,
 		All:      true,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -96,8 +110,8 @@ func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller fun
 	return Register(s, Route{
 		Method:   http.MethodGet,
 		Path:     path,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -105,8 +119,8 @@ func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller fu
 	return Register(s, Route{
 		Method:   http.MethodPost,
 		Path:     path,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -114,8 +128,8 @@ func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller 
 	return Register(s, Route{
 		Method:   http.MethodDelete,
 		Path:     path,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -123,8 +137,8 @@ func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller fun
 	return Register(s, Route{
 		Method:   http.MethodPut,
 		Path:     path,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -132,8 +146,8 @@ func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller f
 	return Register(s, Route{
 		Method:   http.MethodPatch,
 		Path:     path,
-		Request:  new(B),
-		Response: new(T),
+		Request:  &Schema{Type: new(B)},
+		Response: &Schema{Type: new(T)},
 	}, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -192,7 +206,6 @@ func Register(group *RouterGroup, route Route, controller gin.HandlerFunc, middl
 		group.rg.Handle(route.Method, route.Path, handlers...)
 	}
 
-	// route.Path = ginToStdPath(group.rg.BasePath() + route.Path)
 	return route
 }
 

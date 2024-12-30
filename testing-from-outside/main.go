@@ -55,6 +55,11 @@ func openAPIRouter() *fuego.Server {
 	return s
 }
 
+type request struct {
+	Name string
+	Type string
+}
+
 func main() {
 	s := openAPIRouter()
 
@@ -67,6 +72,6 @@ func main() {
 		fuego.DefaultOpenAPIHandler("/openapi.json").ServeHTTP(ctx.Writer, ctx.Request)
 	}).Build()
 
-	fuego.Get(s.RouterGroup(), "/", fuegoRouter).Summary("hello world").Description("my world is here").WithRequest("hello world").WithResponse("my world").Build()
+	fuego.Get(s.RouterGroup(), "/", fuegoRouter).Summary("hello world").Description("my world is here").WithRequest(request{}).WithResponse(request{}).Build()
 	s.Run(":8080")
 }
