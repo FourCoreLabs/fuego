@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"log"
 	"net/http"
 
 	"github.com/fourcorelabs/fuego"
@@ -47,8 +49,8 @@ func openAPIRouter() *fuego.Server {
 	s := fuego.NewServer(
 		// fuego.WithoutLogger(),
 		fuego.WithSerializer(fuego.Send),
-		fuego.WithGlobalResponseTypes(http.StatusBadRequest, "Bad Request _(validation or deserialization error)_", fuego.HTTPError{}),
-		fuego.WithGlobalResponseTypes(http.StatusInternalServerError, "Internal Server Error", fuego.HTTPError{}),
+		fuego.WithGlobalResponseTypes(http.StatusBadRequest, fuego.HTTPError{}, "Bad Request _(validation or deserialization error)_"),
+		fuego.WithGlobalResponseTypes(http.StatusInternalServerError, fuego.HTTPError{}, "Internal Server Error"),
 	)
 
 	s.OpenApiSpec = spec
@@ -72,6 +74,19 @@ func main() {
 		fuego.DefaultOpenAPIHandler("/openapi.json").ServeHTTP(ctx.Writer, ctx.Request)
 	}).Build()
 
-	fuego.Get(s.RouterGroup(), "/", fuegoRouter).Summary("hello world").Description("my world is here").WithRequest(request{}).WithResponse(request{}).Build()
-	s.Run(":8080")
+	fuego.Get(s.RouterGroup(), "/", fuegoRouter).
+		Query("filter", "my desc", fuego.WithAllowReserved()).
+		Summary("hello world").
+		Description("my world is here").
+		WithRequest(request{}, "my request").
+		WithResponse(request{}, "my response").
+		Build()
+
+	if err := s.OpenApiSpec.Validate(context.Background()); err != nil {
+		log.Panic(err)
+	}
+
+	if err := s.Run(":8080"); err != nil {
+		panic(err)
+	}
 }
