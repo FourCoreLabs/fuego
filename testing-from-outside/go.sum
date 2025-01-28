@@ -19,6 +19,8 @@ github.com/fourcorelabs/fuego v0.1.27-0.20241226134715-e71bbc761491 h1:O+Peh1M71
 github.com/fourcorelabs/fuego v0.1.27-0.20241226134715-e71bbc761491/go.mod h1:ThARpKmhynL38E487nxqV2cJgNjWJnpsRmBUH5ueAnw=
 github.com/fourcorelabs/fuego v0.1.27-0.20241230012623-c50f25ff7b35 h1:LetppKRJCAw3WbnFl1hWV8ftN7lvpFsszL1O1YLZii8=
 github.com/fourcorelabs/fuego v0.1.27-0.20241230012623-c50f25ff7b35/go.mod h1:ThARpKmhynL38E487nxqV2cJgNjWJnpsRmBUH5ueAnw=
+github.com/fourcorelabs/fuego v0.1.28 h1:8Y+km7GjVQPLQo4GaEYZtdpBRTaXN401/ichDiv7VS4=
+github.com/fourcorelabs/fuego v0.1.28/go.mod h1:sM9b2XdcjWy3PiaJdTyZbTmUXiGO28SUeg082/rb798=
 github.com/gabriel-vasile/mimetype v1.4.4 h1:QjV6pZ7/XZ7ryI2KuyeEDE8wnh7fHP9YnQy+R0LnH8I=
 github.com/gabriel-vasile/mimetype v1.4.4/go.mod h1:JwLei5XPtWdGiMFB5Pjle1oEeoSeEuJfJE+TtfvdB/s=
 github.com/gabriel-vasile/mimetype v1.4.7 h1:SKFKl7kD0RiPdbht0s7hFtjl489WcQ1VyPW8ZzUMYCA=

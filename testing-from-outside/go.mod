@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.3
 
 require (
-	github.com/fourcorelabs/fuego v0.1.27-0.20241230012623-c50f25ff7b35
+	github.com/fourcorelabs/fuego v0.1.28
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/rs/cors v1.11.0

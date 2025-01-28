@@ -193,12 +193,12 @@ func (r Route) WithRequest(reqType any, contentType ...string) Route {
 	return r
 }
 
-func (r Route) WithRequestDesc(desc string) Route {
+func (r Route) RequestDescription(desc string) Route {
 	r.Request.Description = desc
 	return r
 }
 
-func (r Route) WithResponseDesc(desc string) Route {
+func (r Route) ResponseDescription(desc string) Route {
 	r.Response.Description = desc
 	return r
 }
@@ -213,6 +213,16 @@ func (r Route) WithResponse(resType any, contentType ...string) Route {
 		ContentType: contentType,
 	}
 
+	return r
+}
+
+func (r Route) RequestContentType(contentType string) Route {
+	r.Request.ContentType = []string{contentType}
+	return r
+}
+
+func (r Route) ResponseContentType(contentType string) Route {
+	r.Response.ContentType = []string{contentType}
 	return r
 }
 
