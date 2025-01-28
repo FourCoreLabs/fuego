@@ -180,28 +180,36 @@ func (r Route) Deprecated() Route {
 	return r
 }
 
-func (r Route) WithRequest(reqType any, description string, contentType ...string) Route {
+func (r Route) WithRequest(reqType any, contentType ...string) Route {
 	if len(contentType) == 0 {
 		contentType = append(contentType, "application/json")
 	}
 
-	r.Request = &Schema{
+	r.Request = Schema{
 		Type:        reqType,
-		Description: description,
 		ContentType: contentType,
 	}
 
 	return r
 }
 
-func (r Route) WithResponse(resType any, description string, contentType ...string) Route {
+func (r Route) WithRequestDesc(desc string) Route {
+	r.Request.Description = desc
+	return r
+}
+
+func (r Route) WithResponseDesc(desc string) Route {
+	r.Response.Description = desc
+	return r
+}
+
+func (r Route) WithResponse(resType any, contentType ...string) Route {
 	if len(contentType) == 0 {
 		contentType = append(contentType, "application/json")
 	}
 
-	r.Response = &Schema{
+	r.Response = Schema{
 		Type:        resType,
-		Description: description,
 		ContentType: contentType,
 	}
 

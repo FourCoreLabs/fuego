@@ -3,6 +3,7 @@ package fuego
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"reflect"
 	"slices"
@@ -90,12 +91,14 @@ func RegisterOpenAPIOperation(group *RouterGroup, route Route) (*openapi3.Operat
 		route.Param(param.Type, param.Name, param.Description, param.opts...)
 	}
 
+	fmt.Printf("%T\n%v\n", route.Request.Type, route.Request.Type)
+
 	// Request Body
-	if route.Operation.RequestBody == nil && route.Request != nil {
+	if route.Operation.RequestBody == nil && route.Request.Type != nil {
 		bodyTag := schemaTagFromType(group.server, route.Request.Type)
 
 		if bodyTag.name != "unknown-interface" {
-			requestBody := newRequestBody(bodyTag, *route.Request)
+			requestBody := newRequestBody(bodyTag, route.Request)
 			group.server.OpenApiSpec.Components.RequestBodies[bodyTag.name] = &openapi3.RequestBodyRef{
 				Value: requestBody,
 			}
@@ -119,14 +122,9 @@ func RegisterOpenAPIOperation(group *RouterGroup, route Route) (*openapi3.Operat
 	}
 
 	// Response - 200
-	if route.Response != nil {
-		addResponse(group.server, route.Operation, 200, *route.Response)
+	if route.Response.Type != nil {
+		addResponse(group.server, route.Operation, 200, route.Response)
 	}
-
-	// responseSchema := schemaTagFromType(group.server, route.Response)
-	// content := openapi3.NewContentWithSchemaRef(&responseSchema.SchemaRef, []string{"application/json"})
-	// response := openapi3.NewResponse().WithDescription("OK").WithContent(content)
-	// route.Operation.AddResponse(200, response)
 
 	for _, pathParam := range parseGinPathParams(route.Path) {
 		pathParam := strings.TrimPrefix(pathParam, ":")
@@ -144,7 +142,7 @@ func RegisterOpenAPIOperation(group *RouterGroup, route Route) (*openapi3.Operat
 		route.Operation.AddParameter(parameter)
 	}
 
-	group.server.OpenApiSpec.AddOperation(route.Path, route.Method, route.Operation)
+	group.server.OpenApiSpec.AddOperation(convertGinPathToStdPath(route.Path), route.Method, route.Operation)
 
 	return route.Operation, nil
 }

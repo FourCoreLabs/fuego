@@ -33,3 +33,15 @@ func parseGinPathParams(path string) []string {
 
 	return params
 }
+
+func convertGinPathToStdPath(ginPath string) string {
+	segments := strings.Split(ginPath, "/")
+	for i, segment := range segments {
+		if strings.HasPrefix(segment, ":") {
+			segments[i] = "{" + strings.TrimPrefix(segment, ":") + "}"
+		} else if strings.HasPrefix(segment, "*") {
+			segments[i] = "{" + strings.TrimPrefix(segment, "*") + "...}"
+		}
+	}
+	return strings.Join(segments, "/")
+}

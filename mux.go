@@ -1,6 +1,7 @@
 package fuego
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -79,8 +80,8 @@ type Route struct {
 	mainRouter *Server             // ref to the main router, used to register the route in the OpenAPI spec
 	Group      *RouterGroup
 
-	Response *Schema
-	Request  *Schema
+	Response Schema
+	Request  Schema
 	Errors   []openAPIError
 }
 
@@ -98,57 +99,83 @@ type openAPIError struct {
 
 // Capture all methods (GET, POST, PUT, PATCH, DELETE) and register a controller.
 func All[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Path:     path,
-		All:      true,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Path: path,
+		All:  true,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Method:   http.MethodGet,
-		Path:     path,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Method: http.MethodGet,
+		Path:   path,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+
+	fmt.Printf("type: %#v\n", res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func Post[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Method:   http.MethodPost,
-		Path:     path,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Method: http.MethodPost,
+		Path:   path,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func Delete[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Method:   http.MethodDelete,
-		Path:     path,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Method: http.MethodDelete,
+		Path:   path,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func Put[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Method:   http.MethodPut,
-		Path:     path,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Method: http.MethodPut,
+		Path:   path,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func Patch[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller func(Contexted) (T, error), middlewares ...gin.HandlerFunc) Route {
-	return Register(s, Route{
-		Method:   http.MethodPatch,
-		Path:     path,
-		Request:  &Schema{Type: new(B)},
-		Response: &Schema{Type: new(T)},
-	}, FuegoHandler(s.server, controller), middlewares...)
+	r := Route{
+		Method: http.MethodPatch,
+		Path:   path,
+	}
+
+	var req B
+	var res T
+
+	r = r.WithRequest(req).WithResponse(res)
+	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
 func AllGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {

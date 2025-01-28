@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func fuegoRouter(ctx fuego.ContextNoBody) (any, error) {
+func fuegoRouter(ctx fuego.ContextNoBody) (string, error) {
 	return "Hello, World!", nil
 }
 
@@ -72,14 +72,15 @@ func main() {
 
 	fuego.GetGin(s.RouterGroup(), "/api/docs", func(ctx *gin.Context) {
 		fuego.DefaultOpenAPIHandler("/openapi.json").ServeHTTP(ctx.Writer, ctx.Request)
-	}).Build()
+	}).Summary("myname").Build()
 
-	fuego.Get(s.RouterGroup(), "/", fuegoRouter).
+	fuego.Get(s.RouterGroup(), "/:id", fuegoRouter).
 		Query("filter", "my desc", fuego.WithAllowReserved()).
 		Summary("hello world").
 		Description("my world is here").
-		WithRequest(request{}, "my request").
-		WithResponse(request{}, "my response").
+		WithRequestDesc("hello world my request").
+		// WithRequest(request{}, "my req desc").
+		// WithResponse(request{}, "my req desc").
 		Build()
 
 	if err := s.OpenApiSpec.Validate(context.Background()); err != nil {
