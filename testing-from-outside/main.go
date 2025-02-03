@@ -57,11 +57,6 @@ func openAPIRouter() *fuego.Server {
 	return s
 }
 
-type request struct {
-	Name string
-	Type string
-}
-
 func main() {
 	s := openAPIRouter()
 
@@ -78,7 +73,7 @@ func main() {
 		Query("filter", "my desc", fuego.WithAllowReserved()).
 		Summary("hello world").
 		Description("my world is here").
-		WithRequestDesc("hello world my request").
+		RequestDescription("hello world my request").
 		// WithRequest(request{}, "my req desc").
 		// WithResponse(request{}, "my req desc").
 		Build()
