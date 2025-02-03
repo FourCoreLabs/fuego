@@ -3,7 +3,6 @@ package fuego
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"reflect"
 	"slices"
@@ -90,8 +89,6 @@ func RegisterOpenAPIOperation(group *RouterGroup, route Route) (*openapi3.Operat
 	for _, param := range group.params {
 		route.Param(param.Type, param.Name, param.Description, param.opts...)
 	}
-
-	fmt.Printf("%T\n%v\n", route.Request.Type, route.Request.Type)
 
 	// Request Body
 	if route.Operation.RequestBody == nil && route.Request.Type != nil {

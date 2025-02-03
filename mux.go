@@ -1,8 +1,8 @@
 package fuego
 
 import (
-	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -122,7 +122,6 @@ func Get[T, B any, Contexted ctx[B]](s *RouterGroup, path string, controller fun
 
 	r = r.WithRequest(req).WithResponse(res)
 
-	fmt.Printf("type: %#v\n", res)
 	return Register(s, r, FuegoHandler(s.server, controller), middlewares...)
 }
 
@@ -232,6 +231,10 @@ func Register(group *RouterGroup, route Route, controller gin.HandlerFunc, middl
 	} else {
 		group.rg.Handle(route.Method, route.Path, handlers...)
 	}
+
+	basePath, _ := url.Parse(group.BasePath())
+	basePath = basePath.JoinPath(route.Path)
+	route.Path = basePath.String()
 
 	return route
 }
