@@ -226,6 +226,10 @@ func (r Route) ResponseContentType(contentType string) Route {
 	return r
 }
 
+func (r Route) With(opts func(Route) Route) Route {
+	return opts(r)
+}
+
 func (r Route) Build() {
 	if r.Group.DisableOpenapi || r.Method == "" || r.All {
 		return
