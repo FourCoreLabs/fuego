@@ -232,7 +232,7 @@ func (r Route) With(opts func(Route) Route) Route {
 
 func (r Route) Build() {
 	for _, opt := range r.Group.routeCfg {
-		r = opt(r)
+		r = r.With(opt)
 	}
 
 	if r.Group.DisableOpenapi || r.Method == "" || r.All {
