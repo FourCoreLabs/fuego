@@ -47,6 +47,11 @@ func (s *RouterGroup) Show() *RouterGroup {
 	return s
 }
 
+// RouteConfig will apply config to each route in that group
+func (s *RouterGroup) RouteConfig(cfg func(Route) Route) {
+	s.routeCfg = append(s.routeCfg, cfg)
+}
+
 // OutputOpenAPISpec takes the OpenAPI spec and outputs it to a JSON file and/or serves it on a URL.
 // Also serves a Swagger UI.
 // To modify its behavior, use the [WithOpenAPIConfig] option.

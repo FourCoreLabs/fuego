@@ -39,6 +39,8 @@ type RouterGroup struct {
 	// OpenAPI documentation parameters used for all group routes
 	params []OpenAPIParam
 
+	routeCfg []func(Route) Route
+
 	DisableOpenapi bool // If true, the routes within the group will not generate an OpenAPI spec.
 }
 
@@ -158,6 +160,7 @@ func (group *RouterGroup) newRouteGroup(path string, groupOption GroupOption) *R
 		groupTag: groupTag,
 		params:   slices.Clone(group.params),
 		tags:     slices.Clone(group.tags),
+		routeCfg: slices.Clone(group.routeCfg),
 	}
 }
 
