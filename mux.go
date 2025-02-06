@@ -207,7 +207,7 @@ func PutGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares
 
 func DeleteGin(s *RouterGroup, path string, controller gin.HandlerFunc, middlewares ...gin.HandlerFunc) Route {
 	return Register(s, Route{
-		Method: http.MethodPatch,
+		Method: http.MethodDelete,
 		Path:   path,
 	}, controller, middlewares...)
 }
