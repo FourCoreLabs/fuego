@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3gen"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -76,6 +77,7 @@ type Server struct {
 	Serialize      Sender                // Custom serializer that overrides the default one.
 	SerializeError ErrorSender           // Used to serialize the error response. Defaults to [SendError].
 	ErrorHandler   func(err error) error // Used to transform any error into a unified error type structure with status code. Defaults to [ErrorHandler]
+	generator      *openapi3gen.Generator
 }
 
 // NewServer creates a new server with the given options.
@@ -109,6 +111,9 @@ func NewServerWithRouterGroup(rg *gin.RouterGroup, options ...func(*Server)) *Se
 	s := &Server{
 		OpenApiSpec: NewOpenApiSpec(),
 		Security:    NewSecurity(),
+		generator: openapi3gen.NewGenerator(
+			openapi3gen.UseAllExportedFields(),
+		),
 	}
 
 	s.Engine = &gin.Engine{
